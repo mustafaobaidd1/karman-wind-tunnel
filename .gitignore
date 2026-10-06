@@ -7,3 +7,4 @@ blob-report/
 *.log
 .DS_Store
 .vite/
+.scratch/
