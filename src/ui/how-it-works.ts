@@ -64,7 +64,7 @@ function d2q9Figure(): string {
   return `<figure><svg viewBox="0 0 120 120" width="150" height="150" role="img" aria-label="The nine D2Q9 lattice velocities: rest, four axis directions and four diagonals">
     <defs><marker id="ah" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L6 3L0 6z" fill="#ece7de"/></marker></defs>
     <rect x="20" y="20" width="80" height="80" fill="none" stroke="#30353c" stroke-dasharray="2 3"/>
-    ${arrows}<circle cx="60" cy="60" r="3.5" fill="#ece7de"/><text x="68" y="74" fill="#aba69d" font-size="10" font-family="IBM Plex Mono">0</text>
+    ${arrows}<circle cx="60" cy="60" r="3.5" fill="#ece7de"/><text x="75" y="54" fill="#aba69d" font-size="10" font-family="IBM Plex Mono">0</text>
   </svg><figcaption>D2Q9: nine discrete velocities per lattice node (weights 4/9, 1/9, 1/36).</figcaption></figure>`;
 }
 

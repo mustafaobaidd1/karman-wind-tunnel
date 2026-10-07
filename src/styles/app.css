@@ -880,7 +880,7 @@ input[type='range']:disabled {
   z-index: 4;
   display: flex;
   align-items: stretch;
-  background: rgba(11, 12, 14, 0.72);
+  background: rgba(11, 12, 14, 0.86);
   border: 1px solid rgba(48, 53, 60, 0.85);
   border-radius: var(--radius);
   backdrop-filter: blur(6px);
@@ -930,7 +930,7 @@ input[type='range']:disabled {
 }
 
 .transport .btn {
-  background: rgba(11, 12, 14, 0.72);
+  background: rgba(11, 12, 14, 0.86);
   border-color: rgba(48, 53, 60, 0.85);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -953,7 +953,7 @@ input[type='range']:disabled {
 }
 
 .view-switch .segmented {
-  background: rgba(11, 12, 14, 0.72);
+  background: rgba(11, 12, 14, 0.86);
   border-color: rgba(48, 53, 60, 0.85);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -979,7 +979,7 @@ input[type='range']:disabled {
   gap: 8px;
   min-height: 44px;
   padding: 4px 12px 4px 8px;
-  background: rgba(11, 12, 14, 0.72);
+  background: rgba(11, 12, 14, 0.86);
   border: 1px solid rgba(48, 53, 60, 0.85);
   border-radius: var(--radius);
   backdrop-filter: blur(6px);
@@ -1045,7 +1045,7 @@ input[type='range']:disabled {
   z-index: 3;
   width: 196px;
   padding: 7px 10px 8px;
-  background: rgba(11, 12, 14, 0.72);
+  background: rgba(11, 12, 14, 0.86);
   border: 1px solid rgba(48, 53, 60, 0.85);
   border-radius: var(--radius-sm);
   backdrop-filter: blur(6px);
@@ -1075,7 +1075,7 @@ input[type='range']:disabled {
 .legend .smoke-key {
   margin: 0;
   font-size: 11px;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .hint-chip {
@@ -1287,7 +1287,7 @@ input[type='range']:disabled {
 }
 
 .probe-tip .k {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .toasts {
@@ -1938,4 +1938,53 @@ input[type='range']:disabled {
 
 .app[data-mode='benchmark'] .banner {
   display: none;
+}
+
+/* ---------------------------------------------------------------- round-2 polish */
+
+@media (min-width: 1100px) {
+  /* Soft edge where the controls scroll under the force card. */
+  .controls {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1099px) {
+  .measure {
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+
+  .hint-chip {
+    bottom: 80px;
+  }
+}
+
+@media (max-width: 699px) {
+  .phone-views .segmented label .num {
+    display: none;
+  }
+
+  .phone-views .segmented label {
+    min-height: 44px;
+  }
+}
+
+/* Touch screens: every control at least 44 px tall. */
+@media (pointer: coarse) {
+  .view-switch .segmented label,
+  .select,
+  .btn {
+    min-height: 44px;
+  }
+
+  input[type='range'] {
+    height: 40px;
+  }
+
+  .check {
+    min-height: 44px;
+  }
 }

@@ -321,8 +321,10 @@ export class Overlay {
     const ctx = this.ctx;
     const dpr = this.view.dpr;
     const [x0, y0] = this.toScreen(body.x, body.y);
-    // Arrow length: 38 px per unit coefficient, capped.
-    const scale = 38 * dpr;
+    // Arrow length per unit coefficient follows the body size on screen (22–60 px), capped.
+    const lb = localBounds(body);
+    const size = Math.max(lb.maxX - lb.minX, lb.maxY - lb.minY) * this.scale;
+    const scale = Math.min(60 * dpr, Math.max(22 * dpr, 0.75 * size));
     let dx = cd * scale;
     let dy = -cl * scale;
     const len = Math.hypot(dx, dy);

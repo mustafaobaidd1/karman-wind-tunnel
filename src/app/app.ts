@@ -1036,8 +1036,7 @@ export class App {
     }
     const ex = physicalExample(re);
     const pb = this.scene.find(this.measured);
-    const noun = bodyNoun(pb?.body);
-    let text = `Only Re matters: the same flow as a ${ex.lengthLabel} ${noun} in air at ${ex.airLabel}, or in water at ${ex.waterLabel}.`;
+    let text = `Only Re matters: the same flow as ${bodyPhrase(pb?.body, ex.lengthLabel)} in air at ${ex.airLabel}, or in water at ${ex.waterLabel}.`;
     if (strouhal !== null) {
       const f = sheddingFrequency(strouhal, ex.airSpeed, ex.length);
       text += ` In air it would shed vortices about ${f >= 10 ? Math.round(f) : f.toFixed(1)} times per second.`;
@@ -1830,21 +1829,22 @@ export function setFill(input: HTMLInputElement): void {
   input.style.setProperty('--fill', `${pct}%`);
 }
 
-function bodyNoun(body: Body | undefined): string {
+/** "a 2 mm rod", "a wing with a 10 cm chord", … for the Re example. */
+function bodyPhrase(body: Body | undefined, length: string): string {
   switch (body?.type) {
     case 'circle':
-      return 'rod';
+      return `a ${length} rod`;
     case 'square':
-      return 'square bar';
+      return `a ${length} square bar`;
     case 'plate':
-      return 'plate';
+      return `a ${length} plate`;
     case 'airfoil':
-      return 'wing';
+      return `a wing with a ${length} chord`;
     case 'car':
-      return 'tall model car';
+      return `a model car ${length} tall`;
     case 'building':
-      return 'tall block';
+      return `a block ${length} tall`;
     default:
-      return 'object';
+      return `a ${length} object`;
   }
 }

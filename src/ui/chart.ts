@@ -162,11 +162,6 @@ export class ForceChart {
       ctx.stroke();
       ctx.fillText(s, left - 5 * dpr, y);
     }
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#aba69d';
-    ctx.fillText('drag Cd', left + 5 * dpr, cdTop + 3 * dpr);
-    ctx.fillText('lift Cl', left + 5 * dpr, clTop + 2 * dpr);
     ctx.textBaseline = 'middle';
     ctx.fillStyle = TEXT;
 
@@ -250,6 +245,20 @@ export class ForceChart {
       ctx.lineTo(w - right, y);
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    // Strip labels last, on a backdrop, so the data never runs through them.
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    for (const [text, y] of [
+      ['drag Cd', cdTop + 3 * dpr],
+      ['lift Cl', clTop + 2 * dpr],
+    ] as const) {
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(20, 23, 27, 0.85)';
+      ctx.fillRect(left + 2 * dpr, y - 1 * dpr, tw + 6 * dpr, 13 * dpr);
+      ctx.fillStyle = '#aba69d';
+      ctx.fillText(text, left + 5 * dpr, y);
     }
   }
 }
