@@ -35,18 +35,30 @@ export function oklabToLinear(L: number, a: number, b: number): [number, number,
   ];
 }
 
-/** OKLCH → sRGB bytes, reducing chroma until the colour fits the sRGB gamut. */
+function inGamut(L: number, c: number, h: number): boolean {
+  const [r, g, b] = oklabToLinear(L, c * Math.cos(h), c * Math.sin(h));
+  return r >= -1e-5 && g >= -1e-5 && b >= -1e-5 && r <= 1.00001 && g <= 1.00001 && b <= 1.00001;
+}
+
+/**
+ * OKLCH → sRGB bytes. Out-of-gamut colours keep their lightness and hue and take the largest
+ * chroma that fits (found by bisection, so neighbouring entries change smoothly: a stepwise
+ * chroma reduction would show up as bands in smooth gradients).
+ */
 export function oklch(L: number, C: number, hDeg: number): [number, number, number] {
   const h = (hDeg * Math.PI) / 180;
   let c = C;
-  for (let k = 0; k < 40; k++) {
-    const [r, g, b] = oklabToLinear(L, c * Math.cos(h), c * Math.sin(h));
-    if (r >= -1e-4 && g >= -1e-4 && b >= -1e-4 && r <= 1.0001 && g <= 1.0001 && b <= 1.0001) {
-      return [r, g, b].map((v) => Math.round(srgbEncode(v) * 255)) as [number, number, number];
+  if (!inGamut(L, c, h)) {
+    let lo = 0;
+    let hi = C;
+    for (let k = 0; k < 30; k++) {
+      const mid = 0.5 * (lo + hi);
+      if (inGamut(L, mid, h)) lo = mid;
+      else hi = mid;
     }
-    c *= 0.94;
+    c = lo;
   }
-  const [r, g, b] = oklabToLinear(L, 0, 0);
+  const [r, g, b] = oklabToLinear(L, c * Math.cos(h), c * Math.sin(h));
   return [r, g, b].map((v) => Math.round(srgbEncode(v) * 255)) as [number, number, number];
 }
 
@@ -77,37 +89,92 @@ export function luminance([r, g, b]: [number, number, number]): number {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
-function speedColor(t: number): [number, number, number] {
-  const L = lerp(0.16, 0.96, t);
-  // Hue sweeps indigo → blue → teal → pale yellow; chroma peaks mid-range.
-  const h = t < 0.55 ? lerp(285, 195, smooth(t / 0.55)) : lerp(195, 100, smooth((t - 0.55) / 0.45));
-  const C = 0.035 + 0.11 * Math.sin(Math.PI * Math.min(1, t * 1.05));
-  return oklch(L, C, h);
+interface Lch {
+  L: number;
+  C: number;
+  h: number;
 }
 
-function divergingColor(t: number, hueNeg: number, huePos: number, centreL: number) {
-  const s = 2 * t - 1; // −1 … 1
-  const a = Math.abs(s);
-  const L = lerp(centreL, 0.93, Math.pow(a, 0.92));
-  const C = 0.17 * Math.sin(Math.PI * Math.min(1, a * 0.95)) * Math.min(1, a * 3);
-  return oklch(L, C, s < 0 ? hueNeg : huePos);
+/** Lightness, requested chroma and hue along each ramp (t ∈ [0, 1]). */
+function rampSpec(name: MapName, t: number): Lch {
+  if (name === 'speed') {
+    // Indigo → blue → teal → pale yellow; lightness linear in the data.
+    const h = t < 0.55 ? lerp(285, 195, smooth(t / 0.55)) : lerp(195, 100, smooth((t - 0.55) / 0.45));
+    return { L: lerp(0.16, 0.96, t), C: 0.035 + 0.11 * Math.sin(Math.PI * Math.min(1, t * 1.05)), h };
+  }
+  const [hueNeg, huePos] = name === 'vorticity' ? [250, 62] : [195, 355];
+  const sgn = 2 * t - 1;
+  const a = Math.abs(sgn);
+  return {
+    L: lerp(0.17, 0.93, Math.pow(a, 0.92)),
+    C: 0.17 * Math.sin(Math.PI * Math.min(1, a * 0.95)) * Math.min(1, a * 3),
+    h: sgn < 0 ? hueNeg : huePos,
+  };
 }
 
-export function mapColor(name: MapName, t: number): [number, number, number] {
-  const x = Math.min(1, Math.max(0, t));
-  if (name === 'speed') return speedColor(x);
-  if (name === 'vorticity') return divergingColor(x, 250, 62, 0.17);
-  return divergingColor(x, 195, 355, 0.17);
+function maxChroma(L: number, hDeg: number): number {
+  const h = (hDeg * Math.PI) / 180;
+  let lo = 0;
+  let hi = 0.4;
+  for (let k = 0; k < 28; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (inGamut(L, mid, h)) lo = mid;
+    else hi = mid;
+  }
+  return lo;
 }
 
-/** 256-entry RGBA table for a map. */
+const lutCache = new Map<MapName, Uint8Array>();
+
+/**
+ * 256-entry RGBA table for a map. Chroma is limited to 95 % of the sRGB boundary and then
+ * low-pass filtered along the ramp, so the colours change smoothly (riding the gamut boundary
+ * directly leaves kinks that read as contour bands in smooth fields).
+ */
 export function buildLut(name: MapName): Uint8Array {
-  const out = new Uint8Array(LUT_SIZE * 4);
-  for (let i = 0; i < LUT_SIZE; i++) {
-    const [r, g, b] = mapColor(name, i / (LUT_SIZE - 1));
+  const cached = lutCache.get(name);
+  if (cached) return cached;
+  const n = LUT_SIZE;
+  const spec: Lch[] = [];
+  const chroma = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const sp = rampSpec(name, i / (n - 1));
+    spec.push(sp);
+    chroma[i] = Math.min(sp.C, 0.95 * maxChroma(sp.L, sp.h));
+  }
+  const smoothed = new Float64Array(n);
+  const radius = 10;
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    let wsum = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const j = i + k;
+      if (j < 0 || j >= n) continue;
+      // Diverging maps: never blend across the centre where the hue flips.
+      if (name !== 'speed' && (j < n / 2) !== (i < n / 2)) continue;
+      const w = Math.exp(-(k * k) / (2 * (radius / 2.2) ** 2));
+      sum += w * chroma[j];
+      wsum += w;
+    }
+    smoothed[i] = Math.min(sum / wsum, chroma[i] > 0 ? Infinity : 0);
+  }
+  const out = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const [r, g, b] = oklch(spec[i].L, smoothed[i], spec[i].h);
     out.set([r, g, b, 255], i * 4);
   }
+  lutCache.set(name, out);
   return out;
+}
+
+/** Colour of a map at t ∈ [0, 1] (linear interpolation in the table). */
+export function mapColor(name: MapName, t: number): [number, number, number] {
+  const lut = buildLut(name);
+  const x = Math.min(1, Math.max(0, t)) * (LUT_SIZE - 1);
+  const i = Math.min(LUT_SIZE - 2, Math.floor(x));
+  const f = x - i;
+  const c = (k: number) => Math.round(lut[4 * i + k] * (1 - f) + lut[4 * (i + 1) + k] * f);
+  return [c(0), c(1), c(2)];
 }
 
 /** All maps stacked as rows (speed, vorticity, pressure, spare) for a 256×4 texture. */

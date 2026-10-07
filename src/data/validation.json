@@ -10,27 +10,43 @@
       "boundary": "interpolated",
       "grid": "221×41",
       "cells": 9061,
-      "steps": 70424,
-      "physicalTime": 88.03,
-      "wallSeconds": 30.9219465,
+      "steps": 61744,
+      "physicalTime": 77.18,
+      "wallSeconds": 45.4883021,
       "converged": true,
       "tau": 0.5375,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.647330339578814,
+          "value": 5.64730372519415,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.010255874701040122
+          "error": 0.010251113630438314
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.011558258436428073,
+          "value": 0.011558166892428041,
           "lo": 0.0104,
           "hi": 0.011,
-          "error": 0.05075076694800666
+          "error": 0.05074244476618562
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.11402971799300114,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.027050187773027784
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08279136103835817,
+          "lo": 0.0842,
+          "hi": 0.0852,
+          "error": -0.016729678879356596
         }
       ]
     },
@@ -41,26 +57,42 @@
       "boundary": "interpolated",
       "grid": "441×82",
       "cells": 36162,
-      "steps": 158832,
-      "physicalTime": 99.27,
-      "wallSeconds": 426.4110593,
+      "steps": 138592,
+      "physicalTime": 86.62,
+      "wallSeconds": 308.25200679999995,
       "converged": true,
       "tau": 0.575,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.619488607799131,
+          "value": 5.619463598812553,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.005275242897876701
+          "error": 0.005270769018345817
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.010793028682016809,
+          "value": 0.010792991756241795,
           "lo": 0.0104,
           "hi": 0.011,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.11499217642284994,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.018838085129266737
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08435951901584204,
+          "lo": 0.0842,
+          "hi": 0.0852,
           "error": 0
         }
       ]
@@ -72,26 +104,42 @@
       "boundary": "interpolated",
       "grid": "881×164",
       "cells": 144484,
-      "steps": 342400,
-      "physicalTime": 107,
-      "wallSeconds": 3120.4012265999995,
+      "steps": 298704,
+      "physicalTime": 93.345,
+      "wallSeconds": 1658.8851931,
       "converged": true,
       "tau": 0.65,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.609382946778758,
+          "value": 5.609402006169899,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.0034674323396704557
+          "error": 0.0034708418908584496
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.010602887384733384,
+          "value": 0.010602978473133818,
           "lo": 0.0104,
           "hi": 0.011,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.1168138130415457,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.003295110567016201
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08466544934786122,
+          "lo": 0.0842,
+          "hi": 0.0852,
           "error": 0
         }
       ]
@@ -103,27 +151,43 @@
       "boundary": "half-way",
       "grid": "441×82",
       "cells": 36162,
-      "steps": 158872,
-      "physicalTime": 99.295,
-      "wallSeconds": 441.3861351,
+      "steps": 138616,
+      "physicalTime": 86.635,
+      "wallSeconds": 320.44380659999996,
       "converged": true,
       "tau": 0.575,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.7351588110554275,
+          "value": 5.735132978860019,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.025967586950881503
+          "error": 0.025962965806801266
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.010416059136007941,
+          "value": 0.010416017310606571,
           "lo": 0.0104,
           "hi": 0.011,
           "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.11505531988151556,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.018299318417102736
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08862015369576341,
+          "lo": 0.0842,
+          "hi": 0.0852,
+          "error": 0.04014264901130768
         }
       ]
     },
@@ -134,27 +198,43 @@
       "boundary": "half-way",
       "grid": "881×164",
       "cells": 144484,
-      "steps": 342416,
-      "physicalTime": 107.005,
-      "wallSeconds": 3161.2349406,
+      "steps": 301232,
+      "physicalTime": 94.135,
+      "wallSeconds": 1680.5546847,
       "converged": true,
       "tau": 0.65,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.639144924291728,
+          "value": 5.639122930003004,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.008791578585282392
+          "error": 0.008787644007693033
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.010358561678092461,
+          "value": 0.010358601986953613,
           "lo": 0.0104,
           "hi": 0.011,
-          "error": -0.003984454029570997
+          "error": -0.00398057817753718
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.11588883022346863,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.011187455431155017
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08566711967574228,
+          "lo": 0.0842,
+          "hi": 0.0852,
+          "error": 0.005482625302139478
         }
       ]
     },
@@ -165,26 +245,42 @@
       "boundary": "interpolated",
       "grid": "441×82",
       "cells": 36162,
-      "steps": 104000,
-      "physicalTime": 130,
-      "wallSeconds": 384.26644210000006,
-      "converged": false,
+      "steps": 93424,
+      "physicalTime": 116.78,
+      "wallSeconds": 231.2809753,
+      "converged": true,
       "tau": 0.65,
       "quantities": [
         {
           "key": "cd",
           "label": "Drag coefficient c_D",
-          "value": 5.7031791058066394,
+          "value": 5.703143604211281,
           "lo": 5.57,
           "hi": 5.59,
-          "error": 0.020246709446626047
+          "error": 0.02024035853511288
         },
         {
           "key": "cl",
           "label": "Lift coefficient c_L",
-          "value": 0.010896418031943945,
+          "value": 0.010896195516212794,
           "lo": 0.0104,
           "hi": 0.011,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP",
+          "value": 0.11683779980311589,
+          "lo": 0.1172,
+          "hi": 0.1176,
+          "error": -0.0030904453659054026
+        },
+        {
+          "key": "la",
+          "label": "Recirculation length L_a",
+          "value": 0.08495623033121127,
+          "lo": 0.0842,
+          "hi": 0.0852,
           "error": 0
         }
       ]

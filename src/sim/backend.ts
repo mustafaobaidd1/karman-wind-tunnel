@@ -101,7 +101,7 @@ export interface SimBackend {
   configure(grid: GridConfig, flow: FlowParams, mask: MaskData, init: InitSpec): Promise<void>;
   setFlow(flow: FlowParams): void;
   /** Upload changed rows [j0, j1] of the mask and wall fractions. */
-  updateMask(mask: MaskData, j0: number, j1: number, previous: Uint8Array): void;
+  updateMask(mask: MaskData, j0: number, j1: number): void;
   reset(init: InitSpec): void;
   setProbe(node: [number, number] | null): void;
   /** Advance `steps` lattice steps (0 = just redraw) and draw the requested view. */

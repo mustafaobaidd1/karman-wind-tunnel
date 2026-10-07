@@ -525,7 +525,7 @@ export class GpuBackend implements SimBackend {
       dt,
       Math.exp(-dt / ((1.6 * this.W) / this.inletSpeed)),
       spacing,
-      Math.max(0.7, 0.13 * spacing),
+      Math.max(0.6, 0.085 * spacing),
       1.0,
       0.5 * spacing,
       0,
@@ -623,10 +623,7 @@ export class GpuBackend implements SimBackend {
       this.inFlight--;
       const dt = performance.now() - t0;
       this.frameMs = this.frameMs === 0 ? dt : this.frameMs * 0.85 + dt * 0.15;
-      if (steps > 0 && dt > 0) {
-        const m = (this.N * steps) / (dt * 1000);
-        this.mlups = this.mlups === 0 ? m : this.mlups * 0.9 + m * 0.1;
-      }
+
     });
     if (read) this.resolveReadback(read);
   }
