@@ -110,12 +110,16 @@ export class App {
   private smoothForces = new Map<number, [number, number]>();
   private warmup: { target: number; started: number; maxMs: number } | null = null;
   private ignoreUnstableUntil = 0;
-  private lastRecovery = 0;
+  private lastRecovery = -Infinity;
   private hintDismissed = false;
   private resizeTimer = 0;
   private gesture:
     | { kind: 'draw'; placed: PlacedBody }
-    | { kind: 'erase'; cuts: Map<number, Extract<Primitive, { kind: 'stroke' }>>; last: [number, number] }
+    | {
+        kind: 'erase';
+        cuts: Map<number, Extract<Primitive, { kind: 'stroke' }>>;
+        last: [number, number];
+      }
     | { kind: 'move'; placed: PlacedBody; dx: number; dy: number; moved: boolean }
     | { kind: 'rotate'; placed: PlacedBody; offset: number }
     | { kind: 'probe' }
@@ -142,8 +146,10 @@ export class App {
     let backend: SimBackend | null = null;
     if (!this.options.forceCpu) {
       try {
-        backend = await GpuBackend.create(this.refs.flow as HTMLCanvasElement, this.backendEvents(), (s) =>
-          this.setLoader(s, 0.12),
+        backend = await GpuBackend.create(
+          this.refs.flow as HTMLCanvasElement,
+          this.backendEvents(),
+          (s) => this.setLoader(s, 0.12),
         );
       } catch (err) {
         this.gpuReason = err instanceof Error ? err.message : String(err);
@@ -160,6 +166,7 @@ export class App {
     else if (!this.options.forceCpu) this.showCpuBanner();
     else this.showCpuBanner();
     this.populateResolution();
+    this.setRunning(true);
     this.beginWarmup();
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -199,7 +206,9 @@ export class App {
     if (this.mode === 'benchmark') this.bench.exitImmediately();
     await this.configureTunnel(true);
     this.populateResolution();
-    this.showCpuBanner(`The GPU stopped responding (${reason}). Running on the CPU at reduced resolution.`);
+    this.showCpuBanner(
+      `The GPU stopped responding (${reason}). Running on the CPU at reduced resolution.`,
+    );
   }
 
   private showCpuBanner(text?: string): void {
@@ -243,7 +252,11 @@ export class App {
       nu: this.nuLattice,
       inlet: new Float32Array(H).fill(this.uIn),
       sponge: { cells: 0, nu: 0.1 },
-      absorb: { inlet: Math.max(6, Math.round(0.06 * W)), outlet: Math.max(8, Math.round(0.07 * W)), sigma: 0.1 },
+      absorb: {
+        inlet: Math.max(6, Math.round(0.06 * W)),
+        outlet: Math.max(8, Math.round(0.07 * W)),
+        sigma: 0.1,
+      },
     };
   }
 
@@ -255,7 +268,11 @@ export class App {
     const L = this.scene.lengthOf(pb.body).length * H;
     const x = pb.body.x * H - 0.5 + 1.1 * L;
     const y = pb.body.y * H - 0.5 + 0.3 * L;
-    return { mode: 'uniform', rampSteps: 0, kick: { x, y, gamma: 0.3 * this.uIn * L, core: 0.35 * L } };
+    return {
+      mode: 'uniform',
+      rampSteps: 0,
+      kick: { x, y, gamma: 0.3 * this.uIn * L, core: 0.35 * L },
+    };
   }
 
   /** (Re)build the open tunnel on the current backend. */
@@ -328,7 +345,8 @@ export class App {
 
   private beginWarmup(): void {
     const W = this.scene.width;
-    const target = Math.round((1.4 * W) / this.uIn);
+    // Two tunnel transits: the wake is developed and the first readouts are already averaged.
+    const target = Math.round((2 * W) / this.uIn);
     this.warmup = {
       target,
       started: performance.now(),
@@ -346,8 +364,6 @@ export class App {
       this.setRunning(false);
       (this.refs.runCta as HTMLElement).hidden = false;
     }
-    this.measurements.reset(this.stepsDone, this.transientSteps());
-    this.resetStep = this.stepsDone;
   }
 
   private setLoader(stage: string, fraction: number): void {
@@ -380,7 +396,10 @@ export class App {
       if (remaining <= 0 || elapsed > this.warmup.maxMs) {
         this.finishWarmup();
       } else {
-        steps = Math.max(8, Math.min(remaining, Math.round(capacity * (backend.kind === 'gpu' ? 0.03 : 0.05))));
+        steps = Math.max(
+          8,
+          Math.min(remaining, Math.round(capacity * (backend.kind === 'gpu' ? 0.03 : 0.05))),
+        );
         this.setLoader('Spinning up the flow', 0.35 + 0.65 * (1 - remaining / this.warmup.target));
       }
     } else if (this.running && document.visibilityState === 'visible') {
@@ -434,7 +453,11 @@ export class App {
   private syncMask(): void {
     const d = this.scene.takeDirty();
     if (!d || !this.backend || !this.scene.raster) return;
-    this.backend.updateMask({ mask: this.scene.raster.mask, q16: this.scene.raster.q16 }, d.j0, d.j1);
+    this.backend.updateMask(
+      { mask: this.scene.raster.mask, q16: this.scene.raster.q16 },
+      d.j0,
+      d.j1,
+    );
     this.bodiesVersion++;
   }
 
@@ -449,7 +472,13 @@ export class App {
       return;
     }
     const ppc = Math.min(w / W, h / H);
-    this.overlay.view = { originX: (w - W * ppc) / 2, originY: (h - H * ppc) / 2, pxPerCell: ppc, rows: H, dpr };
+    this.overlay.view = {
+      originX: (w - W * ppc) / 2,
+      originY: (h - H * ppc) / 2,
+      pxPerCell: ppc,
+      rows: H,
+      dpr,
+    };
     // Smooth the force arrows.
     for (const pb of this.scene.bodies) {
       const s = this.measurements.series.get(pb.body.uid)?.last();
@@ -470,7 +499,12 @@ export class App {
       probe: this.probeWorld,
       brush:
         this.brushAt && (this.tool === 'draw' || this.tool === 'erase')
-          ? { x: this.brushAt[0], y: this.brushAt[1], r: this.brushCells / H, erase: this.tool === 'erase' }
+          ? {
+              x: this.brushAt[0],
+              y: this.brushAt[1],
+              r: this.brushCells / H,
+              erase: this.tool === 'erase',
+            }
           : null,
       bodiesVersion: this.bodiesVersion,
     });
@@ -546,7 +580,8 @@ export class App {
     document.querySelectorAll<HTMLButtonElement>('[data-action="play"]').forEach((b) => {
       b.setAttribute('aria-label', `${label} (Space)`);
       const span = b.querySelector('span');
-      b.innerHTML = (on ? icons.pause : icons.play) + (span ? `<span>${on ? 'Pause' : 'Play'}</span>` : '');
+      b.innerHTML =
+        (on ? icons.pause : icons.play) + (span ? `<span>${on ? 'Pause' : 'Play'}</span>` : '');
     });
   }
 
@@ -564,21 +599,28 @@ export class App {
   /** Steps excluded from statistics after a change: ten convective times. */
   transientSteps(): number {
     const pb = this.scene.find(this.measured);
-    const L = pb ? this.scene.lengthOf(pb.body).length * this.scene.height : 0.1 * this.scene.height;
+    const L = pb
+      ? this.scene.lengthOf(pb.body).length * this.scene.height
+      : 0.1 * this.scene.height;
     return Math.round((10 * L) / this.uIn);
   }
 
   private stepOnce(): void {
     this.setRunning(false);
-    this.stepRequest += Math.max(1, Math.round(this.scene.width / (this.uIn * CROSSING_SECONDS * 60)));
+    this.stepRequest += Math.max(
+      1,
+      Math.round(this.scene.width / (this.uIn * CROSSING_SECONDS * 60)),
+    );
   }
 
   setView(view: ViewMode): void {
     this.view = view;
     this.refs.app.dataset.view = view;
-    document.querySelectorAll<HTMLInputElement>('input[name="view"], input[name="view-m"]').forEach((i) => {
-      i.checked = i.value === view;
-    });
+    document
+      .querySelectorAll<HTMLInputElement>('input[name="view"], input[name="view-m"]')
+      .forEach((i) => {
+        i.checked = i.value === view;
+      });
     this.refs.dockView.textContent = VIEW_LABEL[view];
     this.updateLegend();
     this.updateCanvasLabel();
@@ -633,7 +675,9 @@ export class App {
       this.scene.clear();
       this.measurements.series.clear();
     } else if (this.scene.bodies.length + bodies.length > MAX_BODIES) {
-      this.toast(`The tunnel holds up to ${MAX_BODIES} bodies. Delete one first.`, { kind: 'warn' });
+      this.toast(`The tunnel holds up to ${MAX_BODIES} bodies. Delete one first.`, {
+        kind: 'warn',
+      });
       return;
     }
     let first: PlacedBody | null = null;
@@ -683,6 +727,18 @@ export class App {
     if (uid !== null) this.measured = uid;
     this.bodiesVersion++;
     this.syncBodyUi();
+    if (uid === null) return;
+    if (window.matchMedia('(min-width: 700px)').matches) {
+      this.refs.inspector.scrollIntoView({
+        block: 'nearest',
+        behavior: this.options.reducedMotion ? 'auto' : 'smooth',
+      });
+    } else if (!this.refs.controls.classList.contains('is-open')) {
+      const name = this.scene.find(uid)?.body.name ?? 'Body';
+      this.toast(`${name} selected. Drag to move it; size and angle are under More.`, {
+        timeout: 2600,
+      });
+    }
   }
 
   afterSceneChange(): void {
@@ -810,7 +866,7 @@ export class App {
       setText(r.hudCl, '—', true);
       setText(r.hudSt, '—', true);
       setText(r.cdMean, '—', true);
-      r.cdSub.textContent = 'add a body to measure';
+      r.cdSub.textContent = 'no body';
       setText(r.clValue, '—', true);
       r.clSub.textContent = '';
       setText(r.stValue, '—', true);
@@ -821,8 +877,16 @@ export class App {
     }
 
     const settling = st.cdMean === null;
-    const cdText = settling ? (Number.isFinite(st.cd) ? `≈${st.cd.toFixed(2)}` : '—') : st.cdMean!.toFixed(3);
-    setText(r.hudCd, settling ? (Number.isFinite(st.cd) ? `≈${st.cd.toFixed(2)}` : '—') : st.cdMean!.toFixed(2), settling);
+    const cdText = settling
+      ? Number.isFinite(st.cd)
+        ? `≈${st.cd.toFixed(2)}`
+        : '—'
+      : st.cdMean!.toFixed(3);
+    setText(
+      r.hudCd,
+      settling ? (Number.isFinite(st.cd) ? `≈${st.cd.toFixed(2)}` : '—') : st.cdMean!.toFixed(2),
+      settling,
+    );
     setText(r.cdMean, cdText, settling);
     r.cdSub.textContent = settling
       ? 'settling…'
@@ -872,7 +936,9 @@ export class App {
         `Williamson's fit for an unconfined cylinder gives St ≈ ${w.toFixed(3)} at this Re; the tunnel walls (blockage ${(blockage * 100).toFixed(0)} %) and the coarse lattice shift both St and Cd.`,
       );
     } else if (blockage > 0.2) {
-      notes.push(`Blockage ${(blockage * 100).toFixed(0)} %: the walls squeeze the flow and raise the drag.`);
+      notes.push(
+        `Blockage ${(blockage * 100).toFixed(0)} %: the walls squeeze the flow and raise the drag.`,
+      );
     }
     r.measureNote.textContent = notes.join(' ');
 
@@ -900,7 +966,8 @@ export class App {
   /** Fraction of the tunnel height a body occupies. */
   private blockage(pb: PlacedBody): number {
     const L = this.scene.lengthOf(pb.body);
-    if (pb.body.type === 'circle' || pb.body.type === 'square' || pb.body.type === 'sketch') return L.length;
+    if (pb.body.type === 'circle' || pb.body.type === 'square' || pb.body.type === 'sketch')
+      return L.length;
     const H = this.scene.height;
     const cells = this.scene.raster;
     if (!cells) return 0;
@@ -990,7 +1057,7 @@ export class App {
     }
     if (this.scene.bodies.length === 0) {
       const o = document.createElement('option');
-      o.textContent = 'nothing';
+      o.textContent = 'no body yet';
       select.append(o);
     }
     select.disabled = this.scene.bodies.length === 0;
@@ -1011,41 +1078,103 @@ export class App {
     const b = pb.body;
     r.inspName.textContent = b.name;
     const fields: string[] = [];
-    const range = (id: string, label: string, min: number, max: number, step: number, value: number, out: string) =>
+    const range = (
+      id: string,
+      label: string,
+      min: number,
+      max: number,
+      step: number,
+      value: number,
+      out: string,
+    ) =>
       `<div class="field"><label for="insp-${id}">${label}</label><output for="insp-${id}" data-insp-out="${id}">${out}</output>` +
       `<input type="range" id="insp-${id}" data-insp="${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
     const deg = (rad: number) => Math.round((rad * 180) / Math.PI);
     switch (b.type) {
       case 'circle':
-        fields.push(range('size', 'Diameter', 0.03, 0.3, 0.005, b.params.size, b.params.size.toFixed(3)));
+        fields.push(
+          range('size', 'Diameter', 0.03, 0.3, 0.005, b.params.size, b.params.size.toFixed(3)),
+        );
         break;
       case 'square':
-        fields.push(range('size', 'Side', 0.03, 0.3, 0.005, b.params.size, b.params.size.toFixed(3)));
+        fields.push(
+          range('size', 'Side', 0.03, 0.3, 0.005, b.params.size, b.params.size.toFixed(3)),
+        );
         break;
       case 'plate':
-        fields.push(range('size', 'Length', 0.04, 0.4, 0.005, b.params.size, b.params.size.toFixed(3)));
+        fields.push(
+          range('size', 'Length', 0.04, 0.4, 0.005, b.params.size, b.params.size.toFixed(3)),
+        );
         break;
       case 'airfoil': {
         const n = b.params.naca!;
-        fields.push(range('size', 'Chord', 0.12, 0.6, 0.01, b.params.size, b.params.size.toFixed(2)));
-        fields.push(range('camber', 'Camber', 0, 9, 1, Math.round(n.camber * 100), `${Math.round(n.camber * 100)} %`));
-        fields.push(range('camberPos', 'Camber position', 1, 9, 1, Math.max(1, Math.round(n.camberPos * 10)), `${Math.max(1, Math.round(n.camberPos * 10)) * 10} %`));
-        fields.push(range('thickness', 'Thickness', 6, 30, 1, Math.round(n.thickness * 100), `${Math.round(n.thickness * 100)} %`));
+        fields.push(
+          range('size', 'Chord', 0.12, 0.6, 0.01, b.params.size, b.params.size.toFixed(2)),
+        );
+        fields.push(
+          range(
+            'camber',
+            'Camber',
+            0,
+            9,
+            1,
+            Math.round(n.camber * 100),
+            `${Math.round(n.camber * 100)} %`,
+          ),
+        );
+        fields.push(
+          range(
+            'camberPos',
+            'Camber position',
+            1,
+            9,
+            1,
+            Math.max(1, Math.round(n.camberPos * 10)),
+            `${Math.max(1, Math.round(n.camberPos * 10)) * 10} %`,
+          ),
+        );
+        fields.push(
+          range(
+            'thickness',
+            'Thickness',
+            6,
+            30,
+            1,
+            Math.round(n.thickness * 100),
+            `${Math.round(n.thickness * 100)} %`,
+          ),
+        );
         break;
       }
       case 'car':
-        fields.push(range('size', 'Length', 0.2, 0.8, 0.01, b.params.size, b.params.size.toFixed(2)));
+        fields.push(
+          range('size', 'Length', 0.2, 0.8, 0.01, b.params.size, b.params.size.toFixed(2)),
+        );
         break;
       case 'building':
-        fields.push(range('size', 'Height', 0.1, 0.7, 0.01, b.params.size, b.params.size.toFixed(2)));
-        fields.push(range('size2', 'Width', 0.05, 0.5, 0.01, b.params.size2 ?? 0.14, (b.params.size2 ?? 0.14).toFixed(2)));
+        fields.push(
+          range('size', 'Height', 0.1, 0.7, 0.01, b.params.size, b.params.size.toFixed(2)),
+        );
+        fields.push(
+          range(
+            'size2',
+            'Width',
+            0.05,
+            0.5,
+            0.01,
+            b.params.size2 ?? 0.14,
+            (b.params.size2 ?? 0.14).toFixed(2),
+          ),
+        );
         break;
       case 'sketch':
         break;
     }
     const aoa = b.type === 'airfoil' || b.type === 'plate';
     const angle = aoa ? -deg(b.angle) : deg(b.angle);
-    fields.push(range('angle', aoa ? 'Angle of attack' : 'Rotation', -180, 180, 1, angle, `${angle}°`));
+    fields.push(
+      range('angle', aoa ? 'Angle of attack' : 'Rotation', -180, 180, 1, angle, `${angle}°`),
+    );
     r.inspFields.innerHTML = fields.join('');
     r.inspFields.querySelectorAll<HTMLInputElement>('input[type="range"]').forEach(setFill);
     this.syncInspectorLength();
@@ -1106,7 +1235,9 @@ export class App {
       }
       if (pb.body.type === 'airfoil') {
         this.refs.inspName.textContent = pb.body.name = `NACA ${nacaCode(pb.body.params.naca!)}`;
-        const opt = (this.refs.bodySelect as HTMLSelectElement).querySelector<HTMLOptionElement>(`option[value="${pb.body.uid}"]`);
+        const opt = (this.refs.bodySelect as HTMLSelectElement).querySelector<HTMLOptionElement>(
+          `option[value="${pb.body.uid}"]`,
+        );
         if (opt) opt.textContent = pb.body.name;
       }
     }
@@ -1141,7 +1272,10 @@ export class App {
   private updateCanvasLabel(): void {
     const names = this.scene.bodies.map((b) => b.body.name);
     const what = names.length ? `past ${names.join(', ')}` : 'through an empty tunnel';
-    this.refs.flow.setAttribute('aria-label', `${VIEW_LABEL[this.view]} view: air flowing from left to right ${what}.`);
+    this.refs.flow.setAttribute(
+      'aria-label',
+      `${VIEW_LABEL[this.view]} view: air flowing from left to right ${what}.`,
+    );
   }
 
   private populateResolution(): void {
@@ -1150,7 +1284,9 @@ export class App {
     const fmtCells = (c: number) => (c >= 1000 ? `${Math.round(c / 1000)}k` : String(c));
     const opts = [
       `<option value="auto">Auto (${auto.label.toLowerCase()}, ${this.scene.width}×${this.scene.height})</option>`,
-      ...this.tiers.map((t) => `<option value="${t.id}">${t.label} · ~${fmtCells(t.cells)} cells</option>`),
+      ...this.tiers.map(
+        (t) => `<option value="${t.id}">${t.label} · ~${fmtCells(t.cells)} cells</option>`,
+      ),
     ];
     sel.innerHTML = opts.join('');
     sel.value = this.tierId;
@@ -1163,7 +1299,8 @@ export class App {
     let dpr = Math.min(2, window.devicePixelRatio || 1);
     // Keep the drawing surface under ~2.6 megapixels.
     const maxPx = 2.6e6;
-    if (rect.width * rect.height * dpr * dpr > maxPx) dpr = Math.sqrt(maxPx / (rect.width * rect.height));
+    if (rect.width * rect.height * dpr * dpr > maxPx)
+      dpr = Math.sqrt(maxPx / (rect.width * rect.height));
     const w = Math.max(1, Math.round(rect.width * dpr));
     const h = Math.max(1, Math.round(rect.height * dpr));
     this.canvasSize = { w, h, dpr };
@@ -1194,7 +1331,9 @@ export class App {
     const root = r.app;
 
     root.addEventListener('click', (e) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-action], [data-preset], [data-dock-tool]');
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
+        '[data-action], [data-preset], [data-dock-tool]',
+      );
       if (!target) return;
       const preset = target.dataset.preset as PresetId | undefined;
       if (preset) {
@@ -1260,7 +1399,8 @@ export class App {
       const t = e.target as HTMLInputElement | HTMLSelectElement;
       if (t.name === 'view' || t.name === 'view-m') this.setView(t.value as ViewMode);
       else if (t.name === 'tool') this.setTool(t.value as Tool);
-      else if (t === r.tracers || t === r.tracersM) this.setTracers((t as HTMLInputElement).checked);
+      else if (t === r.tracers || t === r.tracersM)
+        this.setTracers((t as HTMLInputElement).checked);
       else if (t === r.addMode) this.addMode = (t as HTMLInputElement).checked;
       else if (t === r.bodySelect) {
         this.measured = Number(t.value);
@@ -1268,14 +1408,16 @@ export class App {
         this.updateReadouts();
         this.bodiesVersion++;
       } else if (t === r.resolution) void this.setTier(t.value);
-      else if (t.name === 'bench-case' || t === r.benchRes || t === r.benchBc) this.bench.syncControls();
+      else if (t.name === 'bench-case' || t === r.benchRes || t === r.benchBc)
+        this.bench.syncControls();
     });
 
     root.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
       if (t === r.speed) this.setSpeed(Number(t.value));
       else if (t === r.viscosity) {
-        const nu = NU_LATTICE_MIN * Math.pow(NU_LATTICE_MAX / NU_LATTICE_MIN, Number(t.value) / 1000);
+        const nu =
+          NU_LATTICE_MIN * Math.pow(NU_LATTICE_MAX / NU_LATTICE_MIN, Number(t.value) / 1000);
         this.setViscosityLattice(nu);
       } else if (t === r.brush) {
         this.brushCells = Number(t.value);
@@ -1299,7 +1441,9 @@ export class App {
         this.toast('Paused while the tab was hidden. Resumed.', { timeout: 2500 });
       }
     });
-    window.matchMedia('(max-width: 699px)').addEventListener('change', () => this.bench.placeResults());
+    window
+      .matchMedia('(max-width: 699px)')
+      .addEventListener('change', () => this.bench.placeResults());
   }
 
   private openDrawer(): void {
@@ -1358,7 +1502,9 @@ export class App {
       switch (this.tool) {
         case 'draw': {
           if (this.scene.full) {
-            this.toast(`The tunnel holds up to ${MAX_BODIES} bodies. Delete one first.`, { kind: 'warn' });
+            this.toast(`The tunnel holds up to ${MAX_BODIES} bodies. Delete one first.`, {
+              kind: 'warn',
+            });
             return;
           }
           const placed = this.scene.beginSketch(wx, wy, Math.max(1.2, this.brushCells) / H);
@@ -1393,7 +1539,13 @@ export class App {
           const hit = this.scene.hit(wx, wy, tolerance(6));
           if (hit) {
             this.select(hit.body.uid);
-            this.gesture = { kind: 'move', placed: hit, dx: hit.body.x - wx, dy: hit.body.y - wy, moved: false };
+            this.gesture = {
+              kind: 'move',
+              placed: hit,
+              dx: hit.body.x - wx,
+              dy: hit.body.y - wy,
+              moved: false,
+            };
             el.classList.add('dragging');
           } else {
             this.select(null);
@@ -1412,7 +1564,11 @@ export class App {
       this.brushAt = [wx, wy];
       const g = this.gesture;
       if (!g) {
-        if (e.pointerType === 'mouse' && this.mode === 'tunnel' && !this.probePinned) this.setProbeAt(wx, wy, false);
+        const hoverProbe = this.tool === 'move' || this.tool === 'probe';
+        if (e.pointerType === 'mouse' && this.mode === 'tunnel' && !this.probePinned) {
+          if (hoverProbe && !this.scene.hit(wx, wy, 0)) this.setProbeAt(wx, wy, false);
+          else this.clearProbe();
+        }
         if (this.tool === 'move' && this.mode === 'tunnel') {
           const sel = this.scene.find(this.selected);
           let overHandle = false;
@@ -1420,7 +1576,9 @@ export class App {
             const [hx, hy] = this.overlay.handlePosition(sel.body);
             const rect = el.getBoundingClientRect();
             const dpr = this.canvasSize.dpr;
-            overHandle = Math.hypot((e.clientX - rect.left) * dpr - hx, (e.clientY - rect.top) * dpr - hy) < 16 * dpr;
+            overHandle =
+              Math.hypot((e.clientX - rect.left) * dpr - hx, (e.clientY - rect.top) * dpr - hy) <
+              16 * dpr;
           }
           el.classList.toggle('over-handle', overHandle);
           el.classList.toggle('over-body', !overHandle && !!this.scene.hit(wx, wy, tolerance(6)));
@@ -1489,7 +1647,11 @@ export class App {
   private eraseAt(wx: number, wy: number): void {
     const g = this.gesture;
     if (!g || g.kind !== 'erase') return;
-    const removed = this.scene.erase([g.last, [wx, wy]], this.brushCells / this.scene.height, g.cuts);
+    const removed = this.scene.erase(
+      [g.last, [wx, wy]],
+      this.brushCells / this.scene.height,
+      g.cuts,
+    );
     for (const uid of removed) {
       this.measurements.forget(uid);
       this.smoothForces.delete(uid);
@@ -1503,7 +1665,8 @@ export class App {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement;
       const tag = t.tagName;
-      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t.isContentEditable;
+      const typing =
+        tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t.isContentEditable;
       const onControl = tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY';
       if ((this.refs.how as HTMLDialogElement).open) return;
       if (e.key === 'Escape') {
@@ -1513,9 +1676,17 @@ export class App {
         return;
       }
       const isRange = tag === 'INPUT' && (t as HTMLInputElement).type === 'range';
-      if (e.key.startsWith('Arrow') && this.selected !== null && !isRange && !(tag === 'INPUT' && (t as HTMLInputElement).type === 'radio') && tag !== 'SELECT') {
+      if (
+        e.key.startsWith('Arrow') &&
+        this.selected !== null &&
+        !isRange &&
+        !(tag === 'INPUT' && (t as HTMLInputElement).type === 'radio') &&
+        tag !== 'SELECT'
+      ) {
         const n = e.shiftKey ? 10 : 1;
-        const d = { ArrowLeft: [-n, 0], ArrowRight: [n, 0], ArrowUp: [0, n], ArrowDown: [0, -n] }[e.key];
+        const d = { ArrowLeft: [-n, 0], ArrowRight: [n, 0], ArrowUp: [0, n], ArrowDown: [0, -n] }[
+          e.key
+        ];
         if (d && this.mode === 'tunnel') {
           e.preventDefault();
           this.nudgeSelected(d[0], d[1]);

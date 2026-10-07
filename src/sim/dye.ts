@@ -17,7 +17,12 @@ export interface RakeParams {
 }
 
 export function rakeParams(spacing: number): RakeParams {
-  return { spacing, halfWidth: Math.max(0.6, 0.085 * spacing), injectWidth: 1, phase: 0.5 * spacing };
+  return {
+    spacing,
+    halfWidth: Math.max(0.6, 0.085 * spacing),
+    injectWidth: 1,
+    phase: 0.5 * spacing,
+  };
 }
 
 function hash11(n: number): number {
@@ -84,7 +89,14 @@ export class DyeField {
    * Advance by `dt` lattice steps using the lattice velocity (ux, uy, node (i, j) centred at
    * (i + ½, j + ½)). `decay` multiplies the field once per call.
    */
-  step(ux: ArrayLike<number>, uy: ArrayLike<number>, mask: Uint8Array, dt: number, decay: number, r: RakeParams) {
+  step(
+    ux: ArrayLike<number>,
+    uy: ArrayLike<number>,
+    mask: Uint8Array,
+    dt: number,
+    decay: number,
+    r: RakeParams,
+  ) {
     const { W, H, DW, DH, scale } = this;
     const phi = this.phi;
     const hat = this.hat;

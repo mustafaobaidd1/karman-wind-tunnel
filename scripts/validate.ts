@@ -79,7 +79,8 @@ const order = (r: CaseSpec) => allCases.findIndex((m) => label(m) === label(r));
 results.sort((a, b) => order(a) - order(b));
 
 const fmt = (v: number, digits = 4) => (Number.isFinite(v) ? v.toFixed(digits) : '—');
-const pct = (e: number) => (Number.isFinite(e) ? (e === 0 ? 'in range' : `${(e * 100).toFixed(2)} %`) : '—');
+const pct = (e: number) =>
+  Number.isFinite(e) ? (e === 0 ? 'in range' : `${(e * 100).toFixed(2)} %`) : '—';
 const lines: string[] = [];
 for (const caseId of ['2D-1', '2D-2'] as const) {
   const rows = results.filter((r) => r.caseId === caseId);
@@ -110,11 +111,14 @@ writeFileSync(
     {
       generated: new Date().toISOString().slice(0, 10),
       solver: 'CPU reference solver (float64), D2Q9 TRT Λ = 3/16',
-      startup: 'fluid at rest, inlet ramped over 1 s (physical), viscous sponge over the last 0.2 m',
+      startup:
+        'fluid at rest, inlet ramped over 1 s (physical), viscous sponge over the last 0.2 m',
       runs: results,
     },
     null,
     2,
   ) + '\n',
 );
-console.log(`\nWrote src/data/validation.json in ${((performance.now() - t0) / 60000).toFixed(1)} min.`);
+console.log(
+  `\nWrote src/data/validation.json in ${((performance.now() - t0) / 60000).toFixed(1)} min.`,
+);

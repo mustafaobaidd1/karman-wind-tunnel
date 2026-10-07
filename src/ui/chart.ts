@@ -63,12 +63,10 @@ export class ForceChart {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
     if (!data || data.t.length < 2) return;
-    const left = 30 * dpr;
     const right = 8 * dpr;
     const top = 8 * dpr;
     const bottom = 18 * dpr;
     const gap = 10 * dpr;
-    const plotW = w - left - right;
     const plotH = h - top - bottom - gap;
     const cdH = plotH * 0.56;
     const clH = plotH - cdH;
@@ -79,27 +77,30 @@ export class ForceChart {
     const tEnd = toUnits(data.t[data.t.length - 1]);
     const tStart = Math.max(toUnits(data.t[0]), tEnd - data.span);
     const span = Math.max(tEnd - tStart, 1e-6);
-    const x = (tu: number) => left + ((tu - tStart) / span) * plotW;
 
-    // Ranges from visible data, eased so the axes do not jitter.
-    let cdLo = Infinity;
-    let cdHi = -Infinity;
-    let clAbs = 0;
+    // Robust ranges (2nd–98th percentile of the visible data) so start-up spikes are clipped
+    // instead of flattening everything else; eased so the axes do not jitter.
     let first = 0;
+    const cds: number[] = [];
+    const cls: number[] = [];
     for (let i = 0; i < data.t.length; i++) {
-      const tu = toUnits(data.t[i]);
-      if (tu < tStart) {
+      if (toUnits(data.t[i]) < tStart) {
         first = i + 1;
         continue;
       }
-      const a = data.cd[i];
-      const b = data.cl[i];
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-      cdLo = Math.min(cdLo, a);
-      cdHi = Math.max(cdHi, a);
-      clAbs = Math.max(clAbs, Math.abs(b));
+      if (Number.isFinite(data.cd[i]) && Number.isFinite(data.cl[i])) {
+        cds.push(data.cd[i]);
+        cls.push(Math.abs(data.cl[i]));
+      }
     }
-    if (!Number.isFinite(cdLo)) return;
+    if (cds.length < 2) return;
+    cds.sort((p, q) => p - q);
+    cls.sort((p, q) => p - q);
+    const pick = (arr: number[], f: number) =>
+      arr[Math.min(arr.length - 1, Math.max(0, Math.round(f * (arr.length - 1))))];
+    const cdLo = pick(cds, 0.02);
+    const cdHi = pick(cds, 0.98);
+    const clAbs = pick(cls, 0.98);
     // Keep at least ±0.12 around the data so small oscillations are not blown up.
     const mid = 0.5 * (cdLo + cdHi);
     const half = Math.max(0.12, 0.5 * (cdHi - cdLo) * 1.15);
@@ -119,29 +120,47 @@ export class ForceChart {
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 1;
 
-    // Grid and labels: drag.
+    // Tick labels first, so the left margin fits the widest one (e.g. "−0.04").
+    const fmt = (v: number, step: number) => {
+      const s = (Math.abs(v) < 1e-9 ? 0 : v).toFixed(step < 0.01 ? 3 : step < 0.1 ? 2 : 1);
+      return s.replace('-', '−');
+    };
     const sCd = niceStep(c1 - c0, 3);
+    const cdTicks: Array<[number, string]> = [];
+    for (let v = Math.ceil(c0 / sCd) * sCd; v <= c1; v += sCd) cdTicks.push([v, fmt(v, sCd)]);
+    const sCl = niceStep(this.clRange, 1.5);
+    const clTicks: Array<[number, string]> = [];
+    for (let v = -Math.floor(this.clRange / sCl) * sCl; v <= this.clRange + 1e-9; v += sCl) {
+      clTicks.push([v, fmt(v, sCl)]);
+    }
+    let widest = 0;
+    for (const [, s] of [...cdTicks, ...clTicks])
+      widest = Math.max(widest, ctx.measureText(s).width);
+    const left = Math.max(26 * dpr, widest + 9 * dpr);
+    const plotW = w - left - right;
+    const x = (tu: number) => left + ((tu - tStart) / span) * plotW;
+
+    // Grid and labels: drag.
     ctx.fillStyle = TEXT;
     ctx.textAlign = 'right';
-    for (let v = Math.ceil(c0 / sCd) * sCd; v <= c1; v += sCd) {
+    for (const [v, s] of cdTicks) {
       const y = Math.round(ycd(v)) + 0.5;
       ctx.strokeStyle = GRID;
       ctx.beginPath();
       ctx.moveTo(left, y);
       ctx.lineTo(w - right, y);
       ctx.stroke();
-      ctx.fillText(v.toFixed(sCd < 0.1 ? 2 : 1), left - 5 * dpr, y);
+      ctx.fillText(s, left - 5 * dpr, y);
     }
     // Lift: zero line and ±range.
-    const sCl = niceStep(this.clRange, 1.5);
-    for (let v = -Math.floor(this.clRange / sCl) * sCl; v <= this.clRange + 1e-9; v += sCl) {
+    for (const [v, s] of clTicks) {
       const y = Math.round(ycl(v)) + 0.5;
       ctx.strokeStyle = Math.abs(v) < 1e-9 ? '#30353c' : GRID;
       ctx.beginPath();
       ctx.moveTo(left, y);
       ctx.lineTo(w - right, y);
       ctx.stroke();
-      ctx.fillText((Math.abs(v) < 1e-9 ? 0 : v).toFixed(sCl < 0.1 ? 2 : 1), left - 5 * dpr, y);
+      ctx.fillText(s, left - 5 * dpr, y);
     }
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -165,7 +184,8 @@ export class ForceChart {
       ctx.lineTo(xx, h - bottom);
       ctx.stroke();
       ctx.fillStyle = TEXT;
-      if (showLabel) ctx.fillText(sT < 1 ? v.toFixed(1) : `${Math.round(v)}`, xx, h - bottom + 4 * dpr);
+      if (showLabel)
+        ctx.fillText(sT < 1 ? v.toFixed(1) : `${Math.round(v)}`, xx, h - bottom + 4 * dpr);
     }
     ctx.textAlign = 'right';
     ctx.fillText('t·U/L', w - right, h - bottom + 4 * dpr);
@@ -184,7 +204,14 @@ export class ForceChart {
     }
 
     // Series.
-    const line = (vals: Float64Array, y: (v: number) => number, dash: number[], alpha: number, clipTop: number, clipH: number) => {
+    const line = (
+      vals: Float64Array,
+      y: (v: number) => number,
+      dash: number[],
+      alpha: number,
+      clipTop: number,
+      clipH: number,
+    ) => {
       ctx.save();
       ctx.beginPath();
       ctx.rect(left, clipTop, plotW, clipH);

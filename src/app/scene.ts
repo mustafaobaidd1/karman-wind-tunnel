@@ -19,14 +19,7 @@ import {
 import { MAX_BODIES } from '../sim/backend.ts';
 
 export type PresetId =
-  | 'circle'
-  | 'square'
-  | 'plate'
-  | 'airfoil'
-  | 'tandem'
-  | 'car'
-  | 'building'
-  | 'splitter';
+  'circle' | 'square' | 'plate' | 'airfoil' | 'tandem' | 'car' | 'building' | 'splitter';
 
 export class Scene {
   bodies: PlacedBody[] = [];

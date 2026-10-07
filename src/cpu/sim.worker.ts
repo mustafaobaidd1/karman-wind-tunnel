@@ -5,7 +5,14 @@
  */
 import { DyeField, rakeParams, type RakeParams } from '../sim/dye.ts';
 import { LbmSolver } from '../sim/lbm.ts';
-import { FORCE_STRIDE, MAX_BODIES, type FlowParams, type GridConfig, type InitSpec, type ViewMode } from '../sim/backend.ts';
+import {
+  FORCE_STRIDE,
+  MAX_BODIES,
+  type FlowParams,
+  type GridConfig,
+  type InitSpec,
+  type ViewMode,
+} from '../sim/backend.ts';
 import { buildLut } from '../render/colormaps.ts';
 import type { WorkerReply, WorkerRequest } from './protocol.ts';
 
@@ -14,7 +21,11 @@ const PARTICLES = 1400;
 const BG = [11, 12, 14];
 const SMOKE = [242, 237, 228];
 const SOLID = [25, 27, 30];
-const luts = { speed: buildLut('speed'), vorticity: buildLut('vorticity'), pressure: buildLut('pressure') };
+const luts = {
+  speed: buildLut('speed'),
+  vorticity: buildLut('vorticity'),
+  pressure: buildLut('pressure'),
+};
 
 let solver: LbmSolver | null = null;
 let dye: DyeField | null = null;
@@ -99,7 +110,8 @@ function advectParticles(dt: number) {
     x += dt * u1;
     y += dt * v1;
     let age = particles[3 * i + 2] + dt;
-    const solid = x >= 0 && x < W && y >= 0 && y < H && mask[Math.floor(y) * W + Math.floor(x)] !== 0;
+    const solid =
+      x >= 0 && x < W && y >= 0 && y < H && mask[Math.floor(y) * W + Math.floor(x)] !== 0;
     if (x < 0 || x >= W || y < 0 || y >= H || age > maxAge || solid) {
       x = Math.random() * 2;
       y = Math.random() * H;
@@ -164,7 +176,8 @@ function colorize(view: ViewMode, out: Uint8ClampedArray, uRef: number, lRef: nu
     }
   } else {
     const s = 2 / (3 * uRef * uRef) / 1.5;
-    for (let k = 0; k < N; k++) field[k] = 0.5 + 0.5 * Math.max(-1, Math.min(1, (rho[k] - rhoRef) * s));
+    for (let k = 0; k < N; k++)
+      field[k] = 0.5 + 0.5 * Math.max(-1, Math.min(1, (rho[k] - rhoRef) * s));
   }
   const lut = luts[view];
   for (let b = 0; b < DH; b++) {
@@ -245,7 +258,12 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
         break;
       case 'fields':
         if (solver) {
-          post({ type: 'fields', rho: Float32Array.from(solver.rho), ux: Float32Array.from(solver.ux), uy: Float32Array.from(solver.uy) });
+          post({
+            type: 'fields',
+            rho: Float32Array.from(solver.rho),
+            ux: Float32Array.from(solver.ux),
+            uy: Float32Array.from(solver.uy),
+          });
         }
         break;
       case 'frame': {
@@ -267,14 +285,22 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
         }
         const simMs = performance.now() - t0;
         if (done > 0) {
-          dye.step(solver.ux, solver.uy, solver.mask, done, Math.exp(-done / ((1.6 * grid.width) / inletSpeed)), rake);
+          dye.step(
+            solver.ux,
+            solver.uy,
+            solver.mask,
+            done,
+            Math.exp(-done / ((1.6 * grid.width) / inletSpeed)),
+            rake,
+          );
           if (msg.tracers) advectParticles(done);
         }
         const H = grid.height;
         const ref = Math.floor(H / 2) * grid.width + Math.min(2, grid.width - 1);
         if (Number.isFinite(solver.rho[ref])) rhoRef = solver.rho[ref];
         const size = dye.DW * dye.DH * 4;
-        const buffer = msg.buffer && msg.buffer.byteLength === size ? msg.buffer : new ArrayBuffer(size);
+        const buffer =
+          msg.buffer && msg.buffer.byteLength === size ? msg.buffer : new ArrayBuffer(size);
         colorize(msg.view, new Uint8ClampedArray(buffer), msg.uRef, msg.lRef);
         const unstable = done > 0 && solver.isUnstable();
         const probeSample: [number, number, number] | null =

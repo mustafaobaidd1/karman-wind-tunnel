@@ -64,7 +64,10 @@ export class GpuBackend implements SimBackend {
   private particlePipe!: GPUComputePipeline;
   private fieldPipe!: GPURenderPipeline;
   private particleDraw!: GPURenderPipeline;
-  private layouts!: Record<'lbm' | 'reduce' | 'dye' | 'aux' | 'particle' | 'render', GPUBindGroupLayout>;
+  private layouts!: Record<
+    'lbm' | 'reduce' | 'dye' | 'aux' | 'particle' | 'render',
+    GPUBindGroupLayout
+  >;
   private lut!: GPUTexture;
   private sampler!: GPUSampler;
 
@@ -238,7 +241,12 @@ export class GpuBackend implements SimBackend {
       this.module(particleSource, 'particles'),
       this.module(renderSource, 'render'),
     ]);
-    const comp = (module: GPUShaderModule, entryPoint: string, layout: GPUBindGroupLayout, constants?: Record<string, number>) =>
+    const comp = (
+      module: GPUShaderModule,
+      entryPoint: string,
+      layout: GPUBindGroupLayout,
+      constants?: Record<string, number>,
+    ) =>
       this.device.createComputePipelineAsync({
         layout: pl(layout),
         compute: { module, entryPoint, constants },
@@ -306,7 +314,11 @@ export class GpuBackend implements SimBackend {
   }
 
   private buffer(size: number, usage: number, label: string): GPUBuffer {
-    const b = this.device.createBuffer({ size: Math.max(16, Math.ceil(size / 4) * 4), usage, label });
+    const b = this.device.createBuffer({
+      size: Math.max(16, Math.ceil(size / 4) * 4),
+      usage,
+      label,
+    });
     this.buffers.push(b);
     return b;
   }
@@ -341,23 +353,40 @@ export class GpuBackend implements SimBackend {
     this.particleParams = this.buffer(32, S.UNIFORM | S.COPY_DST, 'particleParams');
     this.renderParams = this.buffer(80, S.UNIFORM | S.COPY_DST, 'renderParams');
     this.staging = [0, 1, 2].map((i) => ({
-      buffer: this.buffer(STAGING_HEADER + HISTORY * FORCE_STRIDE * 4, S.MAP_READ | S.COPY_DST, `staging${i}`),
+      buffer: this.buffer(
+        STAGING_HEADER + HISTORY * FORCE_STRIDE * 4,
+        S.MAP_READ | S.COPY_DST,
+        `staging${i}`,
+      ),
       busy: false,
     }));
 
     const d = this.device;
-    const entries = (list: GPUBuffer[]) => list.map((buffer, binding) => ({ binding, resource: { buffer } }));
+    const entries = (list: GPUBuffer[]) =>
+      list.map((buffer, binding) => ({ binding, resource: { buffer } }));
     const lbmGroup = (fin: GPUBuffer, fout: GPUBuffer) =>
       d.createBindGroup({
         layout: this.layouts.lbm,
-        entries: entries([this.lbmParams, fin, fout, this.cells, this.lines, this.macro, this.nodeForce, this.status]),
+        entries: entries([
+          this.lbmParams,
+          fin,
+          fout,
+          this.cells,
+          this.lines,
+          this.macro,
+          this.nodeForce,
+          this.status,
+        ]),
       });
     const dyeGroup = (src: GPUBuffer, hat: GPUBuffer, dst: GPUBuffer) =>
       d.createBindGroup({
         layout: this.layouts.dye,
         entries: [
           { binding: 0, resource: { buffer: this.dyeParams, size: 48 } },
-          ...entries([this.macro, src, hat, dst, this.cells]).map((e) => ({ ...e, binding: e.binding + 1 })),
+          ...entries([this.macro, src, hat, dst, this.cells]).map((e) => ({
+            ...e,
+            binding: e.binding + 1,
+          })),
         ],
       });
     const auxGroup = (f: GPUBuffer) =>
@@ -414,7 +443,16 @@ export class GpuBackend implements SimBackend {
   }
 
   private writeUniformLbm(): void {
-    const u = new Uint32Array([this.W, this.H, this.N, this.wallNoSlip, this.rampStart, this.rampLength, 0, 0]);
+    const u = new Uint32Array([
+      this.W,
+      this.H,
+      this.N,
+      this.wallNoSlip,
+      this.rampStart,
+      this.rampLength,
+      0,
+      0,
+    ]);
     this.device.queue.writeBuffer(this.lbmParams, 0, u);
   }
 
@@ -425,7 +463,12 @@ export class GpuBackend implements SimBackend {
     for (let j = 0; j < this.H; j++) umax = Math.max(umax, flow.inlet[j]);
     this.inletSpeed = Math.max(umax, 0.005);
     const rates = columnRates(this.W, flow.nu, flow.sponge.cells, flow.sponge.nu);
-    const absorb = absorberProfile(this.W, flow.absorb.inlet, flow.absorb.outlet, flow.absorb.sigma);
+    const absorb = absorberProfile(
+      this.W,
+      flow.absorb.inlet,
+      flow.absorb.outlet,
+      flow.absorb.sigma,
+    );
     for (let x = 0; x < this.W; x++) {
       const o = this.H + 4 * x;
       data[o] = rates[2 * x];
@@ -552,7 +595,8 @@ export class GpuBackend implements SimBackend {
       return;
     }
     const [i, j] = node;
-    this.probe = Math.max(0, Math.min(this.H - 1, j)) * this.W + Math.max(0, Math.min(this.W - 1, i));
+    this.probe =
+      Math.max(0, Math.min(this.H - 1, j)) * this.W + Math.max(0, Math.min(this.W - 1, i));
   }
 
   frame(steps: number, render: RenderSpec): void {
@@ -567,7 +611,12 @@ export class GpuBackend implements SimBackend {
       this.writeDyeParams(0, every);
       this.writeDyeParams(1, lastDt);
       const pp = new ArrayBuffer(32);
-      new Uint32Array(pp, 0, 4).set([this.W, this.H, PARTICLES, (this.frameSeed = (this.frameSeed * 1103515245 + 12345) >>> 0)]);
+      new Uint32Array(pp, 0, 4).set([
+        this.W,
+        this.H,
+        PARTICLES,
+        (this.frameSeed = (this.frameSeed * 1103515245 + 12345) >>> 0),
+      ]);
       new Float32Array(pp, 16, 4).set([steps, (1.5 * this.W) / Math.max(render.uRef, 0.01), 0, 0]);
       q.writeBuffer(this.particleParams, 0, pp);
 
@@ -623,7 +672,6 @@ export class GpuBackend implements SimBackend {
       this.inFlight--;
       const dt = performance.now() - t0;
       this.frameMs = this.frameMs === 0 ? dt : this.frameMs * 0.85 + dt * 0.15;
-
     });
     if (read) this.resolveReadback(read);
   }
@@ -691,7 +739,13 @@ export class GpuBackend implements SimBackend {
       const rowBytes = FORCE_STRIDE * 4;
       const start = firstStep % HISTORY;
       const firstPart = Math.min(count, HISTORY - start);
-      enc.copyBufferToBuffer(this.history, start * rowBytes, slot.buffer, STAGING_HEADER, firstPart * rowBytes);
+      enc.copyBufferToBuffer(
+        this.history,
+        start * rowBytes,
+        slot.buffer,
+        STAGING_HEADER,
+        firstPart * rowBytes,
+      );
       if (firstPart < count) {
         enc.copyBufferToBuffer(
           this.history,
@@ -707,7 +761,12 @@ export class GpuBackend implements SimBackend {
     return { slot, firstStep, count: this.listCount > 0 ? count : 0, hasProbe: this.probe >= 0 };
   }
 
-  private resolveReadback(read: { slot: Staging; firstStep: number; count: number; hasProbe: boolean }) {
+  private resolveReadback(read: {
+    slot: Staging;
+    firstStep: number;
+    count: number;
+    hasProbe: boolean;
+  }) {
     const { slot } = read;
     const size = STAGING_HEADER + read.count * FORCE_STRIDE * 4;
     slot.buffer

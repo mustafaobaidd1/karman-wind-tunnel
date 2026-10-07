@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { buildLut, luminance, mapColor, oklabLightness } from '../render/colormaps.ts';
 import { DFG_REFERENCE, dfgCoefficients, dfgLattice, rangeError } from './benchmark.ts';
 import { DfgRun } from './dfg-run.ts';
-import { ForceSeries, estimateShedding, isSteady, meanOver, peakOver, upwardCrossings } from './signal.ts';
+import {
+  ForceSeries,
+  estimateShedding,
+  isSteady,
+  meanOver,
+  peakOver,
+  upwardCrossings,
+} from './signal.ts';
 import {
   NU_AIR,
   mach,

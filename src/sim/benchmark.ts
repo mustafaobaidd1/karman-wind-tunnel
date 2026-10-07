@@ -85,7 +85,8 @@ export interface DfgLattice {
  */
 export function dfgLattice(caseId: DfgCaseId, diameterCells: number, uMean = 0.05): DfgLattice {
   if (!(diameterCells >= 4)) throw new RangeError('Need at least 4 cells per diameter');
-  if (!(uMean > 0 && uMean <= 0.2)) throw new RangeError('Lattice mean velocity must be in (0, 0.2]');
+  if (!(uMean > 0 && uMean <= 0.2))
+    throw new RangeError('Lattice mean velocity must be in (0, 0.2]');
   const ref = DFG_REFERENCE[caseId];
   const dx = DFG_GEOMETRY.diameter / diameterCells;
   const height = Math.round(DFG_GEOMETRY.height / dx);

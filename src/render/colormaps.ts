@@ -99,8 +99,13 @@ interface Lch {
 function rampSpec(name: MapName, t: number): Lch {
   if (name === 'speed') {
     // Indigo → blue → teal → pale yellow; lightness linear in the data.
-    const h = t < 0.55 ? lerp(285, 195, smooth(t / 0.55)) : lerp(195, 100, smooth((t - 0.55) / 0.45));
-    return { L: lerp(0.16, 0.96, t), C: 0.035 + 0.11 * Math.sin(Math.PI * Math.min(1, t * 1.05)), h };
+    const h =
+      t < 0.55 ? lerp(285, 195, smooth(t / 0.55)) : lerp(195, 100, smooth((t - 0.55) / 0.45));
+    return {
+      L: lerp(0.16, 0.96, t),
+      C: 0.035 + 0.11 * Math.sin(Math.PI * Math.min(1, t * 1.05)),
+      h,
+    };
   }
   const [hueNeg, huePos] = name === 'vorticity' ? [250, 62] : [195, 355];
   const sgn = 2 * t - 1;
@@ -151,7 +156,7 @@ export function buildLut(name: MapName): Uint8Array {
       const j = i + k;
       if (j < 0 || j >= n) continue;
       // Diverging maps: never blend across the centre where the hue flips.
-      if (name !== 'speed' && (j < n / 2) !== (i < n / 2)) continue;
+      if (name !== 'speed' && j < n / 2 !== i < n / 2) continue;
       const w = Math.exp(-(k * k) / (2 * (radius / 2.2) ** 2));
       sum += w * chroma[j];
       wsum += w;

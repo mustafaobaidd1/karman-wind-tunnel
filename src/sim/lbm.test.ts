@@ -169,7 +169,7 @@ describe('LbmSolver against analytic flows', () => {
     s.initialize((x, y) => {
       const X = k * (x + 0.5);
       const Y = k * (y + 0.5);
-      const p = -(U * U) / 4 * (Math.cos(2 * X) + Math.cos(2 * Y));
+      const p = (-(U * U) / 4) * (Math.cos(2 * X) + Math.cos(2 * Y));
       return [1 + p / CS2, -U * Math.cos(X) * Math.sin(Y), U * Math.sin(X) * Math.cos(Y)];
     });
     const energy = () => {

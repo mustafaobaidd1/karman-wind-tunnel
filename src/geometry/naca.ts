@@ -33,9 +33,7 @@ export function nacaCode({ camber, camberPos, thickness }: NacaParams): string {
 /** Half-thickness y_t(x) for unit chord. */
 export function nacaThickness(x: number, t: number): number {
   return (
-    5 *
-    t *
-    (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1036 * x ** 4)
+    5 * t * (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1036 * x ** 4)
   );
 }
 

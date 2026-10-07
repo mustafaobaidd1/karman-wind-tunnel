@@ -27,7 +27,14 @@ interface Run {
   grid: string;
   steps: number;
   converged: boolean;
-  quantities: Array<{ key: string; label: string; value: number; lo: number; hi: number; error: number }>;
+  quantities: Array<{
+    key: string;
+    label: string;
+    value: number;
+    lo: number;
+    hi: number;
+    error: number;
+  }>;
 }
 
 const tex = (s: string, display = false) =>
@@ -69,14 +76,18 @@ function validationTables(): string {
     if (!rows.length) continue;
     const keys = rows[0].quantities.map((q) => q.key);
     const head = rows[0].quantities.map((q) => q.label.replace(/ [^ ]*$/, ''));
-    const fmt = (v: number, k: string) => (Number.isFinite(v) ? v.toFixed(k === 'cl' ? 5 : 4) : '—');
+    const fmt = (v: number, k: string) =>
+      Number.isFinite(v) ? v.toFixed(k === 'cl' ? 5 : 4) : '—';
     const body = rows
       .map((r) => {
         const cells = keys
           .map((k) => {
             const q = r.quantities.find((x) => x.key === k);
             if (!q) return '<td>—</td>';
-            const e = q.error === 0 ? '✓' : `${q.error > 0 ? '+' : '−'}${Math.abs(q.error * 100).toFixed(1)}%`;
+            const e =
+              q.error === 0
+                ? '✓'
+                : `${q.error > 0 ? '+' : '−'}${Math.abs(q.error * 100).toFixed(1)}%`;
             return `<td>${fmt(q.value, k)} <span style="color:#8d887f">${e}</span></td>`;
           })
           .join('');
@@ -94,7 +105,8 @@ function validationTables(): string {
 export function renderHowItWorks(el: HTMLElement, ctx: HowContext): void {
   const re = ctx.re;
   const example = re ? physicalExample(re) : null;
-  const dtPhys = example && ctx.length > 0 ? (example.length / ctx.length) * (ctx.u / example.airSpeed) : null;
+  const dtPhys =
+    example && ctx.length > 0 ? (example.length / ctx.length) * (ctx.u / example.airSpeed) : null;
   el.innerHTML = `
     <p><strong>Kármán is an educational simulation</strong> of two-dimensional, weakly compressible
     air flow, with a <strong>benchmark mode</strong> that checks the solver against the published

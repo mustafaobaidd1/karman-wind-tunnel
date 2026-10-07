@@ -214,7 +214,12 @@ export function peakOver(t: ArrayLike<number>, v: ArrayLike<number>, t0: number,
  * sample) differ by less than `tolerance` relative, and the signal inside the last window
  * varies less than `tolerance` relative.
  */
-export function isSteady(t: ArrayLike<number>, v: ArrayLike<number>, span: number, tolerance: number) {
+export function isSteady(
+  t: ArrayLike<number>,
+  v: ArrayLike<number>,
+  span: number,
+  tolerance: number,
+) {
   const n = t.length;
   if (n < 4) return false;
   const tEnd = t[n - 1];

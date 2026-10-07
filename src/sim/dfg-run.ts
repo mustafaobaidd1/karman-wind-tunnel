@@ -61,7 +61,8 @@ export class DfgRun {
   constructor(lat: DfgLattice, options: { maxSteps?: number; tolerance?: number } = {}) {
     this.lat = lat;
     const convective = lat.diameterCells / lat.uMean; // steps per D/Ū
-    this.maxSteps = options.maxSteps ?? Math.round((lat.caseId === '2D-1' ? 400 : 200) * convective);
+    this.maxSteps =
+      options.maxSteps ?? Math.round((lat.caseId === '2D-1' ? 400 : 200) * convective);
     this.tolerance = options.tolerance ?? (lat.caseId === '2D-1' ? 1e-5 : 1e-3);
   }
 
@@ -107,7 +108,7 @@ export class DfgRun {
   }
 
   private update2D2(): void {
-    const T = 1 / (DFG_REFERENCE['2D-2'].st.lo * this.lat.uMean / this.lat.diameterCells);
+    const T = 1 / ((DFG_REFERENCE['2D-2'].st.lo * this.lat.uMean) / this.lat.diameterCells);
     const { t, cl } = this.series.window(this.steps - 12 * T);
     const est = estimateShedding(t, cl, { minAmplitude: 0.05, minPeriods: 4, maxPeriods: 4 });
     if (this.phase === 'developing') {
@@ -159,7 +160,9 @@ export class DfgRun {
         q('cl', 'Lift coefficient c_L', clv, ref.cl, ref.precise.cl),
       ];
       if (this.fieldQuantities.dp !== undefined) {
-        out.push(q('dp', 'Pressure difference ΔP', this.fieldQuantities.dp, ref.dp, ref.precise.dp));
+        out.push(
+          q('dp', 'Pressure difference ΔP', this.fieldQuantities.dp, ref.dp, ref.precise.dp),
+        );
       }
       if (this.fieldQuantities.la !== undefined) {
         out.push(q('la', 'Recirculation length L_a', this.fieldQuantities.la, ref.la));
@@ -167,7 +170,8 @@ export class DfgRun {
       return out;
     }
     const ref = DFG_REFERENCE['2D-2'];
-    const since = this.phase === 'developing' ? this.steps - 6 * this.periodGuess() : this.measureStart;
+    const since =
+      this.phase === 'developing' ? this.steps - 6 * this.periodGuess() : this.measureStart;
     const { t, cd, cl } = this.series.window(since);
     const est = estimateShedding(t, cl, { minAmplitude: 0.01, minPeriods: 1, maxPeriods: 8 });
     let cdMax = NaN;
@@ -241,12 +245,30 @@ export class DfgRun {
       const byTime = this.steps / this.maxSteps;
       progress = Math.min(0.99, Math.max(byTime * 0.5, Math.min(1, Math.max(0, byChange))));
       if (this.lat.caseId === '2D-1') message = 'Converging to the steady state';
-      else message = this.phase === 'measuring' ? 'Measuring three shedding periods' : 'Waiting for periodic shedding';
+      else
+        message =
+          this.phase === 'measuring'
+            ? 'Measuring three shedding periods'
+            : 'Waiting for periodic shedding';
     }
-    return { phase: this.phase, progress, message, steps: this.steps, physicalTime, converged: this.converged };
+    return {
+      phase: this.phase,
+      progress,
+      message,
+      steps: this.steps,
+      physicalTime,
+      converged: this.converged,
+    };
   }
 }
 
 function q(key: string, label: string, value: number, range: Range, precise?: number): DfgQuantity {
-  return { key, label, value, range, precise, error: Number.isFinite(value) ? rangeError(value, range) : NaN };
+  return {
+    key,
+    label,
+    value,
+    range,
+    precise,
+    error: Number.isFinite(value) ? rangeError(value, range) : NaN,
+  };
 }

@@ -4,7 +4,12 @@
  */
 
 export type ViewMode = 'smoke' | 'speed' | 'vorticity' | 'pressure';
-export const VIEW_INDEX: Record<ViewMode, number> = { smoke: 0, speed: 1, vorticity: 2, pressure: 3 };
+export const VIEW_INDEX: Record<ViewMode, number> = {
+  smoke: 0,
+  speed: 1,
+  vorticity: 2,
+  pressure: 3,
+};
 /** Number of separately measured bodies (mask ids 1..MAX_BODIES). */
 export const MAX_BODIES = 16;
 /** Floats per force sample: [Fx, Fy] for each body slot. */
@@ -132,8 +137,14 @@ export function maskWords(
       let near = x === 0 || y === 0 || x === width - 1 || y === height - 1 ? 1 : 0;
       if (!near && slot === 0) {
         near =
-          mask[idx - 1] | mask[idx + 1] | mask[idx - width] | mask[idx + width] |
-          mask[idx - width - 1] | mask[idx - width + 1] | mask[idx + width - 1] | mask[idx + width + 1]
+          mask[idx - 1] |
+          mask[idx + 1] |
+          mask[idx - width] |
+          mask[idx + width] |
+          mask[idx - width - 1] |
+          mask[idx - width + 1] |
+          mask[idx + width - 1] |
+          mask[idx + width + 1]
             ? 1
             : 0;
       }

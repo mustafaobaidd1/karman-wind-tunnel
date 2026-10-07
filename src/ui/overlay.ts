@@ -26,6 +26,8 @@ export interface OverlayState {
   probe: [number, number] | null;
   brush: { x: number; y: number; r: number; erase: boolean } | null;
   bodiesVersion: number;
+  /** Draw no-slip channel walls along the top and bottom (benchmark). */
+  walls?: boolean;
 }
 
 const FILL = '#1c1f24';
@@ -203,6 +205,7 @@ export class Overlay {
     this.renderLayer(state);
     ctx.drawImage(this.layer, 0, 0);
 
+    if (state.walls) this.drawWalls();
     const selected = state.bodies.find((b) => b.body.uid === state.selected);
     if (selected) this.drawSelection(selected.body);
 
@@ -236,6 +239,34 @@ export class Overlay {
       ctx.lineWidth = 1.2 * dpr;
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+  }
+
+  private drawWalls(): void {
+    const ctx = this.ctx;
+    const dpr = this.view.dpr;
+    const width = this.canvas.width - 2 * this.view.originX;
+    const t = 5 * dpr;
+    const yTop = this.view.originY;
+    const yBottom = this.view.originY + this.view.rows * this.view.pxPerCell;
+    for (const [y, dir] of [
+      [yTop, -1],
+      [yBottom, 1],
+    ] as const) {
+      ctx.fillStyle = '#1c1f24';
+      ctx.fillRect(this.view.originX, dir < 0 ? y - t : y, width, t);
+      ctx.fillStyle = 'rgba(236, 231, 222, 0.58)';
+      ctx.fillRect(this.view.originX, y - 0.5 * dpr, width, 1 * dpr);
+      // Hatching marks a solid wall, like an engineering drawing.
+      ctx.strokeStyle = 'rgba(236, 231, 222, 0.22)';
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath();
+      for (let x = this.view.originX; x < this.view.originX + width; x += 9 * dpr) {
+        const y0 = dir < 0 ? y - 1 * dpr : y + 1 * dpr;
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x + 4 * dpr, y0 + dir * (t - 1 * dpr));
+      }
+      ctx.stroke();
     }
   }
 

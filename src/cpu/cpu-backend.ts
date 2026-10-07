@@ -30,8 +30,8 @@ export class CpuBackend implements SimBackend {
   private lastRender: RenderSpec | null = null;
   private grid: GridConfig | null = null;
   private readyResolve: (() => void) | null = null;
-  private fieldsResolve: ((f: { rho: Float32Array; ux: Float32Array; uy: Float32Array }) => void) | null =
-    null;
+  private fieldsResolve:
+    ((f: { rho: Float32Array; ux: Float32Array; uy: Float32Array }) => void) | null = null;
   private hasImage = false;
   private destroyed = false;
 
@@ -159,7 +159,11 @@ export class CpuBackend implements SimBackend {
           this.frameMs = this.frameMs === 0 ? msg.simMs : this.frameMs * 0.85 + msg.simMs * 0.15;
         }
         if (msg.stepsDone > 0) {
-          this.events.forces({ firstStep: msg.firstStep, count: msg.stepsDone, forces: msg.forces });
+          this.events.forces({
+            firstStep: msg.firstStep,
+            count: msg.stepsDone,
+            forces: msg.forces,
+          });
         }
         this.events.status({
           unstable: msg.unstable,
@@ -225,7 +229,14 @@ export class CpuBackend implements SimBackend {
       ctx.fillRect(-128, -128, cw + 256, ch + 256);
       ctx.restore();
     }
-    const g = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.25, cw / 2, ch / 2, Math.hypot(cw, ch) * 0.62);
+    const g = ctx.createRadialGradient(
+      cw / 2,
+      ch / 2,
+      Math.min(cw, ch) * 0.25,
+      cw / 2,
+      ch / 2,
+      Math.hypot(cw, ch) * 0.62,
+    );
     g.addColorStop(0, 'rgba(0,0,0,0)');
     g.addColorStop(1, 'rgba(0,0,0,0.28)');
     ctx.fillStyle = g;

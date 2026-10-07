@@ -17,17 +17,7 @@
 export const Q = 9;
 export const CX = [0, 1, 0, -1, 0, 1, -1, -1, 1] as const;
 export const CY = [0, 0, 1, 0, -1, 1, 1, -1, -1] as const;
-export const WEIGHTS = [
-  4 / 9,
-  1 / 9,
-  1 / 9,
-  1 / 9,
-  1 / 9,
-  1 / 36,
-  1 / 36,
-  1 / 36,
-  1 / 36,
-] as const;
+export const WEIGHTS = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36] as const;
 /** Index of the opposite velocity: c[OPP[i]] = −c[i]. */
 export const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6] as const;
 /** Index of the velocity mirrored in y (specular reflection on a horizontal wall). */

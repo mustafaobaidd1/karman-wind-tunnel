@@ -98,9 +98,9 @@ export const template = /* html */ `
 
   <section class="measure" aria-labelledby="measure-title">
     <div class="measure-head">
-      <label><h2 id="measure-title" class="label">Forces on</h2>
-        <select class="select" data-ref="bodySelect" aria-label="Body whose forces are shown"></select>
-      </label>
+      <div class="measure-pick"><h2 id="measure-title" class="label">Forces on</h2>
+        <select class="select" data-ref="bodySelect" aria-labelledby="measure-title"></select>
+      </div>
       <span class="time-readout" data-ref="timeReadout" title="Convective time t·U/L since the last reset"></span>
     </div>
     <div class="readouts">
@@ -125,8 +125,8 @@ export const template = /* html */ `
       <div class="chart-empty" data-ref="chartEmpty" hidden>Forces appear here once a body is in the flow.</div>
     </div>
     <div class="chart-legend" aria-hidden="true">
-      <span class="key"><span class="swatch"></span>C<sub>d</sub> drag</span>
-      <span class="key"><span class="swatch dashed"></span>C<sub>l</sub> lift</span>
+      <span class="key"><span class="swatch"></span>drag C<sub>d</sub></span>
+      <span class="key"><span class="swatch dashed"></span>lift C<sub>l</sub></span>
       <span class="key"><span class="swatch dotted"></span>running mean</span>
     </div>
     <p class="measure-note" data-ref="measureNote"></p>

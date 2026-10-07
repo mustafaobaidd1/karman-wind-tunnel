@@ -28,7 +28,14 @@ export interface CaseResult extends CaseSpec {
   wallSeconds: number;
   converged: boolean;
   tau: number;
-  quantities: Array<{ key: string; label: string; value: number; lo: number; hi: number; error: number }>;
+  quantities: Array<{
+    key: string;
+    label: string;
+    value: number;
+    lo: number;
+    hi: number;
+    error: number;
+  }>;
 }
 
 /** Start-up shared with the browser benchmark: fluid at rest, inlet ramped over 1 s physical. */
@@ -101,7 +108,9 @@ export function runCase(spec: CaseSpec, onProgress?: (msg: string) => void): Cas
 }
 
 if (parentPort && workerData) {
-  const result = runCase(workerData as CaseSpec, (msg) => parentPort?.postMessage({ progress: msg }));
+  const result = runCase(workerData as CaseSpec, (msg) =>
+    parentPort?.postMessage({ progress: msg }),
+  );
   parentPort.postMessage({ result });
 } else if (process.argv[1]?.endsWith('validate-case.ts') && process.argv.length >= 4) {
   const [caseId, d, u, boundary] = process.argv.slice(2);

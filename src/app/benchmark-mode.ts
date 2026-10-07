@@ -3,9 +3,16 @@
  * the backend allows, with live progress and a measured-versus-reference table. The run is
  * judged by the same DfgRun controller that `npm run validate` uses.
  */
-import { dfgLattice, dfgPressureDrop, dfgRecirculationLength, type DfgCaseId, type DfgLattice } from '../sim/benchmark.ts';
+import {
+  dfgLattice,
+  dfgPressureDrop,
+  dfgRecirculationLength,
+  type DfgCaseId,
+  type DfgLattice,
+} from '../sim/benchmark.ts';
 import { FORCE_STRIDE, type ForceBatch } from '../sim/backend.ts';
 import { DfgRun } from '../sim/dfg-run.ts';
+import { estimateShedding } from '../sim/signal.ts';
 import { icons } from '../ui/icons.ts';
 import type { OverlayState, ViewTransform } from '../ui/overlay.ts';
 import type { App } from './app.ts';
@@ -31,6 +38,7 @@ export class BenchmarkMode {
   private lastUi = 0;
   private stepsPerFrame = 200;
   private wallMs = 0;
+  private finishedAt = 0;
   private resultsHome: HTMLElement | null = null;
 
   constructor(app: App) {
@@ -42,7 +50,9 @@ export class BenchmarkMode {
   }
 
   private selectedCase(): DfgCaseId {
-    const r = this.refs.benchControls.querySelector<HTMLInputElement>('input[name="bench-case"]:checked');
+    const r = this.refs.benchControls.querySelector<HTMLInputElement>(
+      'input[name="bench-case"]:checked',
+    );
     return (r?.value as DfgCaseId) ?? '2D-1';
   }
 
@@ -58,8 +68,12 @@ export class BenchmarkMode {
       .map((d) => {
         const lat = dfgLattice(caseId, d, U_MEAN);
         const steps = (caseId === '2D-1' ? 8 : 4) * d * 1000 * (0.025 / U_MEAN);
-        const seconds = (lat.width * lat.height * steps) / (mlups * 1e6);
-        const time = seconds < 90 ? `~${Math.max(5, Math.round(seconds / 5) * 5)} s` : `~${Math.round(seconds / 60)} min`;
+        // Rendering, dye and read-backs take roughly as long again as the bare lattice steps.
+        const seconds = (1.8 * lat.width * lat.height * steps) / (mlups * 1e6);
+        const time =
+          seconds < 90
+            ? `~${Math.max(5, Math.round(seconds / 5) * 5)} s`
+            : `~${Math.round(seconds / 60)} min`;
         return `<option value="${d}">D = ${d} cells · ${lat.width}×${lat.height} · ${time}</option>`;
       })
       .join('');
@@ -105,7 +119,8 @@ export class BenchmarkMode {
     const backend = app.backend;
     if (!backend) return;
     const caseId = this.selectedCase();
-    const d = Number((this.refs.benchRes as HTMLSelectElement).value) || (backend.kind === 'gpu' ? 20 : 10);
+    const d =
+      Number((this.refs.benchRes as HTMLSelectElement).value) || (backend.kind === 'gpu' ? 20 : 10);
     const halfway = (this.refs.benchBc as HTMLSelectElement).value === 'half-way';
     const lat = dfgLattice(caseId, d, U_MEAN);
     this.lat = lat;
@@ -151,7 +166,10 @@ export class BenchmarkMode {
       // Grow or shrink the batch to keep the page responsive (~30 frames per second).
       if (backend.kind === 'gpu') {
         if (backend.busy) return;
-        const target = backend.mlups > 0 ? (backend.mlups * 1e6 * 0.03) / (this.lat.width * this.lat.height) : 200;
+        const target =
+          backend.mlups > 0
+            ? (backend.mlups * 1e6 * 0.03) / (this.lat.width * this.lat.height)
+            : 200;
         this.stepsPerFrame = Math.max(20, Math.min(4000, Math.round(target)));
       } else {
         this.stepsPerFrame = 2000;
@@ -198,7 +216,13 @@ export class BenchmarkMode {
     const spec = this.renderSpec();
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     return {
-      view: { originX: spec.originX, originY: spec.originY, pxPerCell: spec.pxPerCell, rows: this.lat.height, dpr },
+      view: {
+        originX: spec.originX,
+        originY: spec.originY,
+        pxPerCell: spec.pxPerCell,
+        rows: this.lat.height,
+        dpr,
+      },
       state: {
         bodies: [{ body: this.lat.body, slot: 1 }],
         selected: null,
@@ -208,6 +232,7 @@ export class BenchmarkMode {
         probe: null,
         brush: null,
         bodiesVersion: -1 - this.lat.diameterCells,
+        walls: true,
       },
     };
   }
@@ -235,6 +260,7 @@ export class BenchmarkMode {
 
   onUnstable(): void {
     this.finished = true;
+    this.finishedAt = performance.now();
     this.app.toast('The benchmark run became unstable. Try a finer resolution.', { kind: 'warn' });
     this.renderTable();
   }
@@ -242,11 +268,15 @@ export class BenchmarkMode {
   private async finish(): Promise<void> {
     if (this.finished || !this.run || !this.lat) return;
     this.finished = true;
+    this.finishedAt = performance.now();
     const run = this.run;
     if (this.lat.caseId === '2D-1' && this.app.backend) {
       try {
         const f = await this.app.backend.readFields();
-        run.setFieldQuantities({ dp: dfgPressureDrop(this.lat, f.rho), la: dfgRecirculationLength(this.lat, f.ux) });
+        run.setFieldQuantities({
+          dp: dfgPressureDrop(this.lat, f.rho),
+          la: dfgRecirculationLength(this.lat, f.ux),
+        });
       } catch {
         /* field read-back is optional */
       }
@@ -270,14 +300,19 @@ export class BenchmarkMode {
     const pct = Math.round(st.progress * 100);
     const fmt = (v: number, k: string) =>
       Number.isFinite(v) ? v.toFixed(k === 'cl' ? 5 : k === 'la' || k === 'dp' ? 4 : 4) : '—';
-    const err = (e: number) => (!Number.isFinite(e) ? '—' : e === 0 ? 'in range' : `${e > 0 ? '+' : '−'}${Math.abs(e * 100).toFixed(1)} %`);
+    const err = (e: number) =>
+      !Number.isFinite(e)
+        ? '—'
+        : e === 0
+          ? 'in range'
+          : `${e > 0 ? '+' : '−'}${Math.abs(e * 100).toFixed(1)} %`;
     const rows = q
       .map(
         (x) =>
           `<tr><td>${x.label.replace(/_([A-Za-z,]+)/g, '<sub>$1</sub>')}</td><td class="measured">${fmt(x.value, x.key)}</td><td>${x.range.lo}–${x.range.hi}</td><td class="${x.error === 0 ? 'ok' : ''}">${err(x.error)}</td></tr>`,
       )
       .join('');
-    const elapsed = this.finished ? this.wallMs / 1000 : (performance.now() - this.started) / 1000;
+    const elapsed = ((this.finished ? this.finishedAt : performance.now()) - this.started) / 1000;
     const status = this.finished
       ? `${st.converged ? 'Converged' : 'Stopped'} after <strong>${st.steps.toLocaleString('en')}</strong> steps (${st.physicalTime.toFixed(2)} s of flow) in ${elapsed.toFixed(0)} s`
       : `${st.message} · <strong>${pct}%</strong> · ${st.steps.toLocaleString('en')} steps · t = ${st.physicalTime.toFixed(2)} s`;
@@ -285,6 +320,7 @@ export class BenchmarkMode {
       lat.caseId === '2D-1'
         ? 'Reference ranges from Schäfer &amp; Turek (1996), Table 3. At browser resolutions the drag is a few tenths of a percent to a few percent high; most of the remaining error comes from the lattice Mach number (cubic velocity error of D2Q9), not the grid.'
         : 'Reference ranges from Schäfer &amp; Turek (1996), Table 4. The maximum lift converges slowly with resolution: LBM codes typically need ~40–80 cells per diameter to land inside the range.';
+    this.renderMeasureCard(run, lat);
     this.refs.benchResults.innerHTML = `
       <div class="bench-status"><span>${status}</span><span class="mono">${lat.width}×${lat.height}</span></div>
       <div class="progress" aria-hidden="true"><span style="width:${pct}%"></span></div>
@@ -293,6 +329,39 @@ export class BenchmarkMode {
         <tbody>${rows}</tbody>
       </table>
       <p class="bench-note">${note}</p>`;
+  }
+
+  /** Drive the rail's force card from the benchmark cylinder. */
+  private renderMeasureCard(run: DfgRun, lat: DfgLattice): void {
+    const r = this.refs;
+    const select = r.bodySelect as HTMLSelectElement;
+    select.innerHTML = '<option>Benchmark cylinder</option>';
+    select.disabled = true;
+    const last = run.series.last();
+    const conv = lat.diameterCells / lat.uMean;
+    r.timeReadout.textContent = `t = ${(run.stepsDone * lat.dt).toFixed(2)} s`;
+    const set = (el: HTMLElement, text: string, dim: boolean) => {
+      el.textContent = text;
+      el.classList.toggle('dim', dim);
+    };
+    set(r.cdMean, last ? last.cd.toFixed(3) : '—', !last);
+    r.cdSub.textContent = 'instantaneous';
+    set(r.clValue, last ? last.cl.toFixed(lat.caseId === '2D-1' ? 4 : 3) : '—', !last);
+    r.clSub.textContent = 'instantaneous';
+    const { t, cl } = run.series.window(run.stepsDone - 12 * conv);
+    const est =
+      lat.caseId === '2D-2' ? estimateShedding(t, cl, { minAmplitude: 0.05, minPeriods: 2 }) : null;
+    set(r.stValue, est ? ((est.frequency * lat.diameterCells) / lat.uMean).toFixed(3) : '—', !est);
+    r.stSub.textContent =
+      lat.caseId === '2D-1' ? 'steady case' : est ? 'from the lift' : 'waiting for shedding';
+    r.measureNote.textContent = 'Coefficients use the benchmark normalisation c = 2F/(ρŪ²D).';
+    (r.chartEmpty as HTMLElement).hidden = true;
+    const win = run.series.window(0);
+    this.app.chart.draw(
+      win.t.length > 1
+        ? { ...win, origin: 0, convective: conv, statsStart: 0, cdMean: null, span: 400 }
+        : null,
+    );
   }
 
   /** Leave benchmark mode and rebuild the open tunnel. */
@@ -314,5 +383,7 @@ export class BenchmarkMode {
     (this.refs.benchControls as HTMLElement).hidden = true;
     (this.refs.bench as HTMLElement).hidden = true;
     this.placeResults();
+    this.app.chart.resetRanges();
+    this.app.syncBodyUi();
   }
 }

@@ -213,7 +213,9 @@ export class LbmSolver {
   }
 
   /** Set every node to the equilibrium of the given macroscopic state. */
-  initialize(state: (x: number, y: number) => readonly [rho: number, ux: number, uy: number]): void {
+  initialize(
+    state: (x: number, y: number) => readonly [rho: number, ux: number, uy: number],
+  ): void {
     const { width: W, height: H, size: N, f } = this;
     const eq = new Float64Array(9);
     for (let y = 0; y < H; y++) {

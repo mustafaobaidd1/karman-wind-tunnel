@@ -12,7 +12,5 @@ test('has no serious or critical WCAG 2.2 AA violations', async ({ page }) => {
   const blocking = results.violations.filter(
     (v) => v.impact === 'serious' || v.impact === 'critical',
   );
-  expect(
-    blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length} nodes)`),
-  ).toEqual([]);
+  expect(blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length} nodes)`)).toEqual([]);
 });
