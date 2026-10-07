@@ -15,5 +15,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    // Physics tests run tens of thousands of lattice steps; CI runners are slower than laptops.
+    testTimeout: 120_000,
   },
 });

@@ -84,6 +84,10 @@ export class LbmSolver {
   private colOmegaMinus: Float64Array;
   private spongeCells = 0;
   private spongeNu = 0;
+  /** Per-column strength of the absorbing layers at the inlet and the outlet. */
+  private colSigmaIn: Float64Array;
+  private colSigmaOut: Float64Array;
+  private absorbing = false;
   /** Smooth inlet ramp: factor sin²(π/2 · (steps − start)/length), 1 after the ramp. */
   private rampStart = 0;
   private rampLength = 0;
@@ -91,6 +95,7 @@ export class LbmSolver {
   private forceX = 0;
   private forceY = 0;
   private readonly scratch = new Float64Array(9);
+  private readonly scratch2 = new Float64Array(9);
 
   constructor(options: LbmOptions) {
     const { width, height } = options;
@@ -114,6 +119,8 @@ export class LbmSolver {
     this.inletU = new Float64Array(height);
     this.colOmegaPlus = new Float64Array(width);
     this.colOmegaMinus = new Float64Array(width);
+    this.colSigmaIn = new Float64Array(width);
+    this.colSigmaOut = new Float64Array(width);
     this.nu = options.nu;
     this.magic = options.magic ?? 3 / 16;
     this.setViscosity(options.nu);
@@ -146,17 +153,10 @@ export class LbmSolver {
 
   private updateColumns(): void {
     if (!this.colOmegaPlus) return;
-    const W = this.width;
-    const start = W - 1 - this.spongeCells;
-    for (let x = 0; x < W; x++) {
-      let nu = this.nu;
-      if (this.spongeCells > 0 && x > start) {
-        const s = (x - start) / this.spongeCells;
-        nu = this.nu + (Math.max(this.spongeNu, this.nu) - this.nu) * s * s;
-      }
-      const r = trtRates(nu, this.magic);
-      this.colOmegaPlus[x] = r.omegaPlus;
-      this.colOmegaMinus[x] = r.omegaMinus;
+    const rates = columnRates(this.width, this.nu, this.spongeCells, this.spongeNu, this.magic);
+    for (let x = 0; x < this.width; x++) {
+      this.colOmegaPlus[x] = rates[2 * x];
+      this.colOmegaMinus[x] = rates[2 * x + 1];
     }
   }
 
@@ -168,6 +168,21 @@ export class LbmSolver {
   setBodyForce(fx: number, fy: number): void {
     this.forceX = fx;
     this.forceY = fy;
+  }
+
+  /**
+   * Absorbing layers: over `inletCells` after the inlet the populations relax towards the free-
+   * stream equilibrium; over `outletCells` before the outlet the density relaxes towards 1 while
+   * the local velocity is kept (cf. Xu & Sagaut, J. Comput. Phys. 245, 2013). Pressure waves are
+   * absorbed instead of bouncing between the boundaries. Strength rises quadratically to `sigma`.
+   */
+  setAbsorbers(inletCells: number, outletCells: number, sigma: number): void {
+    const prof = absorberProfile(this.width, inletCells, outletCells, sigma);
+    for (let x = 0; x < this.width; x++) {
+      this.colSigmaIn[x] = prof[2 * x];
+      this.colSigmaOut[x] = prof[2 * x + 1];
+    }
+    this.absorbing = sigma > 0 && (inletCells > 0 || outletCells > 0);
   }
 
   /** Ramp the inlet velocity smoothly from 0 over `length` steps starting now. */
@@ -290,6 +305,9 @@ export class LbmSolver {
     const N7 = 7 * N;
     const N8 = 8 * N;
     const outlet = this.xMode === 'flow';
+    const absorbing = this.absorbing;
+    const sigIn = this.colSigmaIn;
+    const sigOut = this.colSigmaOut;
     this.inletFactor = this.inletFactorAt(this.steps);
     this.force.fill(0);
 
@@ -416,6 +434,35 @@ export class LbmSolver {
           sm = km * W5 * 3 * cF;
           r6 += sp + sm;
           r8 += sp - sm;
+        }
+
+        if (absorbing) {
+          const sIn = sigIn[x];
+          const sOut = sigOut[x];
+          const sig = sIn + sOut;
+          if (sig > 0) {
+            // Relax towards the target equilibrium: inlet → (1, U_in), outlet → (1, local u).
+            const tx = sIn >= sOut ? this.inletU[y] * this.inletFactor : ux;
+            const ty = sIn >= sOut ? 0 : uy;
+            const e = this.scratch2;
+            const tsq = 1.5 * (tx * tx + ty * ty);
+            for (let i = 0; i < 9; i++) {
+              const cu = CX[i] * ux + CY[i] * uy;
+              const ct = CX[i] * tx + CY[i] * ty;
+              const own = WEIGHTS[i] * (drho + rho * (3 * cu + 4.5 * cu * cu - usq));
+              const tgt = WEIGHTS[i] * (3 * ct + 4.5 * ct * ct - tsq);
+              e[i] = sig * (own - tgt);
+            }
+            r0 -= e[0];
+            r1 -= e[1];
+            r2 -= e[2];
+            r3 -= e[3];
+            r4 -= e[4];
+            r5 -= e[5];
+            r6 -= e[6];
+            r7 -= e[7];
+            r8 -= e[8];
+          }
         }
 
         dst[idx] = r0;
@@ -666,6 +713,51 @@ export class LbmSolver {
     }
     return false;
   }
+}
+
+/**
+ * TRT rates (ω⁺, ω⁻) per column, interleaved. Over the last `spongeCells` columns before the
+ * outlet the viscosity rises quadratically from `nu` to `spongeNu` (a viscous sponge).
+ */
+export function columnRates(
+  width: number,
+  nu: number,
+  spongeCells: number,
+  spongeNu: number,
+  magic = 3 / 16,
+): Float64Array {
+  const out = new Float64Array(2 * width);
+  const cells = Math.max(0, Math.min(width - 2, Math.round(spongeCells)));
+  const start = width - 1 - cells;
+  for (let x = 0; x < width; x++) {
+    let v = nu;
+    if (cells > 0 && x > start) {
+      const s = (x - start) / cells;
+      v = nu + (Math.max(spongeNu, nu) - nu) * s * s;
+    }
+    const r = trtRates(v, magic);
+    out[2 * x] = r.omegaPlus;
+    out[2 * x + 1] = r.omegaMinus;
+  }
+  return out;
+}
+
+/** Absorbing-layer strengths (σ_in, σ_out) per column, interleaved; quadratic ramps. */
+export function absorberProfile(
+  width: number,
+  inletCells: number,
+  outletCells: number,
+  sigma: number,
+): Float64Array {
+  const out = new Float64Array(2 * width);
+  const a = Math.max(0, Math.round(inletCells));
+  const b = Math.max(0, Math.round(outletCells));
+  for (let x = 0; x < width; x++) {
+    if (a > 0 && x < a) out[2 * x] = sigma * ((a - x) / a) ** 2;
+    const fromEnd = width - 1 - x;
+    if (b > 0 && fromEnd < b) out[2 * x + 1] = sigma * ((b - fromEnd) / b) ** 2;
+  }
+  return out;
 }
 
 /** Shifted equilibrium g_i^eq = f_i^eq − w_i written into `out`. */

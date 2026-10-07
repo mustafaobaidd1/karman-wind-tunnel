@@ -26,7 +26,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "screenshots": "node scripts/screenshots.mjs",
-    "check": "npm run lint && npm run typecheck && npm run format:check && npm test && npm run build && npm run test:e2e"
+    "check": "npm run lint && npm run typecheck && npm run format:check && npm test && npm run build && npm run test:e2e",
+    "validate": "node scripts/validate.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -1,0 +1,428 @@
+{
+  "generated": "2026-10-07",
+  "solver": "CPU reference solver (float64), D2Q9 TRT Λ = 3/16",
+  "startup": "fluid at rest, inlet ramped over 1 s (physical), viscous sponge over the last 0.2 m",
+  "runs": [
+    {
+      "caseId": "2D-1",
+      "diameterCells": 10,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "221×41",
+      "cells": 9061,
+      "steps": 70424,
+      "physicalTime": 88.03,
+      "wallSeconds": 30.9219465,
+      "converged": true,
+      "tau": 0.5375,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.647330339578814,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.010255874701040122
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.011558258436428073,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": 0.05075076694800666
+        }
+      ]
+    },
+    {
+      "caseId": "2D-1",
+      "diameterCells": 20,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 158832,
+      "physicalTime": 99.27,
+      "wallSeconds": 426.4110593,
+      "converged": true,
+      "tau": 0.575,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.619488607799131,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.005275242897876701
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.010793028682016809,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": 0
+        }
+      ]
+    },
+    {
+      "caseId": "2D-1",
+      "diameterCells": 40,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "881×164",
+      "cells": 144484,
+      "steps": 342400,
+      "physicalTime": 107,
+      "wallSeconds": 3120.4012265999995,
+      "converged": true,
+      "tau": 0.65,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.609382946778758,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.0034674323396704557
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.010602887384733384,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": 0
+        }
+      ]
+    },
+    {
+      "caseId": "2D-1",
+      "diameterCells": 20,
+      "uMean": 0.025,
+      "boundary": "half-way",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 158872,
+      "physicalTime": 99.295,
+      "wallSeconds": 441.3861351,
+      "converged": true,
+      "tau": 0.575,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.7351588110554275,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.025967586950881503
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.010416059136007941,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": 0
+        }
+      ]
+    },
+    {
+      "caseId": "2D-1",
+      "diameterCells": 40,
+      "uMean": 0.025,
+      "boundary": "half-way",
+      "grid": "881×164",
+      "cells": 144484,
+      "steps": 342416,
+      "physicalTime": 107.005,
+      "wallSeconds": 3161.2349406,
+      "converged": true,
+      "tau": 0.65,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.639144924291728,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.008791578585282392
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.010358561678092461,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": -0.003984454029570997
+        }
+      ]
+    },
+    {
+      "caseId": "2D-1",
+      "diameterCells": 20,
+      "uMean": 0.05,
+      "boundary": "interpolated",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 104000,
+      "physicalTime": 130,
+      "wallSeconds": 384.26644210000006,
+      "converged": false,
+      "tau": 0.65,
+      "quantities": [
+        {
+          "key": "cd",
+          "label": "Drag coefficient c_D",
+          "value": 5.7031791058066394,
+          "lo": 5.57,
+          "hi": 5.59,
+          "error": 0.020246709446626047
+        },
+        {
+          "key": "cl",
+          "label": "Lift coefficient c_L",
+          "value": 0.010896418031943945,
+          "lo": 0.0104,
+          "hi": 0.011,
+          "error": 0
+        }
+      ]
+    },
+    {
+      "caseId": "2D-2",
+      "diameterCells": 10,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "221×41",
+      "cells": 9061,
+      "steps": 37480,
+      "physicalTime": 9.370000000000001,
+      "wallSeconds": 16.762479900000002,
+      "converged": true,
+      "tau": 0.5075,
+      "quantities": [
+        {
+          "key": "cdMax",
+          "label": "Max drag c_D,max",
+          "value": 3.1003583809581716,
+          "lo": 3.22,
+          "hi": 3.24,
+          "error": -0.037155782311126886
+        },
+        {
+          "key": "clMax",
+          "label": "Max lift c_L,max",
+          "value": 0.6572079264212163,
+          "lo": 0.99,
+          "hi": 1.01,
+          "error": -0.3361536096755391
+        },
+        {
+          "key": "st",
+          "label": "Strouhal number St",
+          "value": 0.3056882682188776,
+          "lo": 0.295,
+          "hi": 0.305,
+          "error": 0.002256617111074197
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP(t₀+1/2f)",
+          "value": 2.361752143326892,
+          "lo": 2.46,
+          "hi": 2.5,
+          "error": -0.03993815311914949
+        }
+      ]
+    },
+    {
+      "caseId": "2D-2",
+      "diameterCells": 20,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 78240,
+      "physicalTime": 9.78,
+      "wallSeconds": 353.5578491,
+      "converged": true,
+      "tau": 0.515,
+      "quantities": [
+        {
+          "key": "cdMax",
+          "label": "Max drag c_D,max",
+          "value": 3.257768499687915,
+          "lo": 3.22,
+          "hi": 3.24,
+          "error": 0.005484104841949021
+        },
+        {
+          "key": "clMax",
+          "label": "Max lift c_L,max",
+          "value": 0.9308286592012972,
+          "lo": 0.99,
+          "hi": 1.01,
+          "error": -0.059769031109800794
+        },
+        {
+          "key": "st",
+          "label": "Strouhal number St",
+          "value": 0.3012771994763641,
+          "lo": 0.295,
+          "hi": 0.305,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP(t₀+1/2f)",
+          "value": 2.4532304786474826,
+          "lo": 2.46,
+          "hi": 2.5,
+          "error": -0.0027518379481778067
+        }
+      ]
+    },
+    {
+      "caseId": "2D-2",
+      "diameterCells": 40,
+      "uMean": 0.025,
+      "boundary": "interpolated",
+      "grid": "881×164",
+      "cells": 144484,
+      "steps": 156184,
+      "physicalTime": 9.7615,
+      "wallSeconds": 1736.3445048,
+      "converged": true,
+      "tau": 0.53,
+      "quantities": [
+        {
+          "key": "cdMax",
+          "label": "Max drag c_D,max",
+          "value": 3.2528132593645904,
+          "lo": 3.22,
+          "hi": 3.24,
+          "error": 0.0039547096804290775
+        },
+        {
+          "key": "clMax",
+          "label": "Max lift c_L,max",
+          "value": 0.9966682141597369,
+          "lo": 0.99,
+          "hi": 1.01,
+          "error": 0
+        },
+        {
+          "key": "st",
+          "label": "Strouhal number St",
+          "value": 0.30163815671355,
+          "lo": 0.295,
+          "hi": 0.305,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP(t₀+1/2f)",
+          "value": 2.478852062330945,
+          "lo": 2.46,
+          "hi": 2.5,
+          "error": 0
+        }
+      ]
+    },
+    {
+      "caseId": "2D-2",
+      "diameterCells": 20,
+      "uMean": 0.025,
+      "boundary": "half-way",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 76472,
+      "physicalTime": 9.559000000000001,
+      "wallSeconds": 349.70093829999996,
+      "converged": true,
+      "tau": 0.515,
+      "quantities": [
+        {
+          "key": "cdMax",
+          "label": "Max drag c_D,max",
+          "value": 3.458808053526738,
+          "lo": 3.22,
+          "hi": 3.24,
+          "error": 0.06753334985393142
+        },
+        {
+          "key": "clMax",
+          "label": "Max lift c_L,max",
+          "value": 1.1378326193877213,
+          "lo": 0.99,
+          "hi": 1.01,
+          "error": 0.12656694988883294
+        },
+        {
+          "key": "st",
+          "label": "Strouhal number St",
+          "value": 0.297141835647651,
+          "lo": 0.295,
+          "hi": 0.305,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP(t₀+1/2f)",
+          "value": 2.538691693351563,
+          "lo": 2.46,
+          "hi": 2.5,
+          "error": 0.015476677340625144
+        }
+      ]
+    },
+    {
+      "caseId": "2D-2",
+      "diameterCells": 20,
+      "uMean": 0.05,
+      "boundary": "interpolated",
+      "grid": "441×82",
+      "cells": 36162,
+      "steps": 74864,
+      "physicalTime": 18.716,
+      "wallSeconds": 352.5489574,
+      "converged": true,
+      "tau": 0.53,
+      "quantities": [
+        {
+          "key": "cdMax",
+          "label": "Max drag c_D,max",
+          "value": 3.30075221155784,
+          "lo": 3.22,
+          "hi": 3.24,
+          "error": 0.018750682579580125
+        },
+        {
+          "key": "clMax",
+          "label": "Max lift c_L,max",
+          "value": 0.9487377039333043,
+          "lo": 0.99,
+          "hi": 1.01,
+          "error": -0.0416790869360563
+        },
+        {
+          "key": "st",
+          "label": "Strouhal number St",
+          "value": 0.30165653176161594,
+          "lo": 0.295,
+          "hi": 0.305,
+          "error": 0
+        },
+        {
+          "key": "dp",
+          "label": "Pressure difference ΔP(t₀+1/2f)",
+          "value": 2.4706587082134575,
+          "lo": 2.46,
+          "hi": 2.5,
+          "error": 0
+        }
+      ]
+    }
+  ]
+}

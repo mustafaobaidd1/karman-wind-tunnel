@@ -38,6 +38,8 @@ export interface DfgStatus {
 export class DfgRun {
   readonly lat: DfgLattice;
   readonly series = new ForceSeries(16384);
+  /** Optional pressure-difference samples ΔP(t) (stored in the `cd` slot). */
+  readonly pressure = new ForceSeries(16384);
   private steps = 0;
   private phase: DfgPhase = 'developing';
   private converged = false;
@@ -48,13 +50,19 @@ export class DfgRun {
   private firstChange = 0;
   private result: DfgQuantity[] | null = null;
   /** Extra quantities computed from the final flow field (2D-1). */
-  fieldQuantities: { dp?: number; la?: number } = {};
+  private fieldQuantities: { dp?: number; la?: number } = {};
+
+  /** Attach ΔP and L_a measured on the final steady field (2D-1). */
+  setFieldQuantities(values: { dp?: number; la?: number }): void {
+    this.fieldQuantities = values;
+    if (this.result) this.result = this.computeResult();
+  }
 
   constructor(lat: DfgLattice, options: { maxSteps?: number; tolerance?: number } = {}) {
     this.lat = lat;
     const convective = lat.diameterCells / lat.uMean; // steps per D/Ū
-    this.maxSteps = options.maxSteps ?? Math.round((lat.caseId === '2D-1' ? 260 : 200) * convective);
-    this.tolerance = options.tolerance ?? (lat.caseId === '2D-1' ? 2e-6 : 1e-3);
+    this.maxSteps = options.maxSteps ?? Math.round((lat.caseId === '2D-1' ? 400 : 200) * convective);
+    this.tolerance = options.tolerance ?? (lat.caseId === '2D-1' ? 1e-5 : 1e-3);
   }
 
   get stepsDone(): number {
@@ -63,6 +71,11 @@ export class DfgRun {
 
   get currentPhase(): DfgPhase {
     return this.phase;
+  }
+
+  /** Record the physical pressure difference ΔP at the current step (2D-2 reports ΔP(t₀ + 1/2f)). */
+  addPressure(dp: number): void {
+    this.pressure.push(this.steps, dp, 0);
   }
 
   /** Add the mean lattice force over `count` steps ending at the current step count. */
@@ -160,17 +173,52 @@ export class DfgRun {
     let cdMax = NaN;
     let clMax = NaN;
     let st = NaN;
+    let dp = NaN;
     if (est) {
       const c = est.crossings;
       cdMax = peakOver(t, cd, c[0], c[c.length - 1]);
       clMax = peakOver(t, cl, c[0], c[c.length - 1]);
       st = (est.frequency * lat.diameterCells) / lat.uMean;
+      dp = this.pressureHalfPeriodAfterLiftMax(t, cl, c[c.length - 2], c[c.length - 1], est.period);
     }
-    return [
+    const out = [
       q('cdMax', 'Max drag c_D,max', cdMax, ref.cdMax),
       q('clMax', 'Max lift c_L,max', clMax, ref.clMax),
       q('st', 'Strouhal number St', st, ref.st),
     ];
+    if (Number.isFinite(dp)) out.push(q('dp', 'Pressure difference ΔP(t₀+1/2f)', dp, ref.dp));
+    return out;
+  }
+
+  /** ΔP half a period after the lift maximum of the period [c0, c1] (benchmark definition). */
+  private pressureHalfPeriodAfterLiftMax(
+    t: Float64Array,
+    cl: Float64Array,
+    c0: number | undefined,
+    c1: number | undefined,
+    period: number,
+  ): number {
+    if (c0 === undefined || c1 === undefined || this.pressure.length < 4) return NaN;
+    let best = -Infinity;
+    let t0 = NaN;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] < c0 || t[i] > c1) continue;
+      if (cl[i] > best) {
+        best = cl[i];
+        t0 = t[i];
+      }
+    }
+    if (!Number.isFinite(t0)) return NaN;
+    const w = this.pressure.window(t0 - period);
+    let target = t0 + 0.5 * period;
+    if (target > w.t[w.t.length - 1]) target -= period;
+    for (let i = 1; i < w.t.length; i++) {
+      if (w.t[i] >= target) {
+        const f = (target - w.t[i - 1]) / (w.t[i] - w.t[i - 1]);
+        return w.cd[i - 1] + f * (w.cd[i] - w.cd[i - 1]);
+      }
+    }
+    return NaN;
   }
 
   private periodGuess(): number {

@@ -50,6 +50,21 @@ export function oklch(L: number, C: number, hDeg: number): [number, number, numb
   return [r, g, b].map((v) => Math.round(srgbEncode(v) * 255)) as [number, number, number];
 }
 
+/** OKLab lightness of sRGB bytes (forward transform, Ottosson 2020). */
+export function oklabLightness([r8, g8, b8]: [number, number, number]): number {
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const r = lin(r8);
+  const g = lin(g8);
+  const b = lin(b8);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s2 = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s2;
+}
+
 /** Relative luminance (WCAG) of sRGB bytes. */
 export function luminance([r, g, b]: [number, number, number]): number {
   const lin = (v: number) => {
