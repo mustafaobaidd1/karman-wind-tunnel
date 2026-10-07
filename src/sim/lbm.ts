@@ -7,7 +7,7 @@
  * - Streaming: "pull" scheme fused with collision; the stored state is post-collision.
  * - Obstacles: half-way bounce-back; forces by momentum exchange (Ladd 1994) on every link.
  * - Inlet: Zou–He velocity boundary at x = 0 (Zou & He, Phys. Fluids 9, 1997).
- * - Outlet: Zou–He pressure boundary (ρ = 1) at x = W − 1, tangential velocity extrapolated.
+ * - Outlet: non-equilibrium extrapolation at x = W − 1 with ρ = 1 (Guo, Zheng & Shi 2002).
  * - Top/bottom: periodic, no-slip (half-way bounce-back) or free-slip (specular reflection).
  * - Optional uniform body force with Guo forcing split into TRT symmetric/antisymmetric parts.
  *
@@ -69,12 +69,25 @@ export class LbmSolver {
   accumulatedSteps = 0;
   /** Inlet x-velocity per row. */
   readonly inletU: Float64Array;
+  /**
+   * Optional wall distances for interpolated bounce-back (Bouzidi, Firdaouss & Lallemand 2001),
+   * packed one uint16 per link: q = wallQ[idx·8 + j − 1] / 65535 is the fraction of link j from
+   * fluid node idx that lies in the fluid. 0 (or a null array) falls back to half-way bounce-back.
+   */
+  wallQ: Uint16Array | null = null;
   steps = 0;
 
   private nu: number;
   private magic: number;
-  private omegaPlus = 1;
-  private omegaMinus = 1;
+  /** Per-column relaxation rates (a viscous sponge before the outlet raises ν there). */
+  private colOmegaPlus: Float64Array;
+  private colOmegaMinus: Float64Array;
+  private spongeCells = 0;
+  private spongeNu = 0;
+  /** Smooth inlet ramp: factor sin²(π/2 · (steps − start)/length), 1 after the ramp. */
+  private rampStart = 0;
+  private rampLength = 0;
+  private inletFactor = 1;
   private forceX = 0;
   private forceY = 0;
   private readonly scratch = new Float64Array(9);
@@ -99,6 +112,8 @@ export class LbmSolver {
     this.mask = new Uint8Array(this.size);
     this.kind = new Uint8Array(this.size);
     this.inletU = new Float64Array(height);
+    this.colOmegaPlus = new Float64Array(width);
+    this.colOmegaMinus = new Float64Array(width);
     this.nu = options.nu;
     this.magic = options.magic ?? 3 / 16;
     this.setViscosity(options.nu);
@@ -115,9 +130,34 @@ export class LbmSolver {
   setViscosity(nu: number): void {
     if (!(nu > 0) || !Number.isFinite(nu)) throw new RangeError(`Viscosity must be > 0, got ${nu}`);
     this.nu = nu;
-    const r = trtRates(nu, this.magic);
-    this.omegaPlus = r.omegaPlus;
-    this.omegaMinus = r.omegaMinus;
+    this.updateColumns();
+  }
+
+  /**
+   * Viscous sponge: over the last `cells` columns before the outlet the viscosity rises
+   * smoothly (quadratically) to `nuMax`, damping vortices and pressure waves before they
+   * reach the outlet. 0 cells disables it.
+   */
+  setSponge(cells: number, nuMax: number): void {
+    this.spongeCells = Math.max(0, Math.min(this.width - 2, Math.round(cells)));
+    this.spongeNu = nuMax;
+    this.updateColumns();
+  }
+
+  private updateColumns(): void {
+    if (!this.colOmegaPlus) return;
+    const W = this.width;
+    const start = W - 1 - this.spongeCells;
+    for (let x = 0; x < W; x++) {
+      let nu = this.nu;
+      if (this.spongeCells > 0 && x > start) {
+        const s = (x - start) / this.spongeCells;
+        nu = this.nu + (Math.max(this.spongeNu, this.nu) - this.nu) * s * s;
+      }
+      const r = trtRates(nu, this.magic);
+      this.colOmegaPlus[x] = r.omegaPlus;
+      this.colOmegaMinus[x] = r.omegaMinus;
+    }
   }
 
   setMagic(magic: number): void {
@@ -128,6 +168,20 @@ export class LbmSolver {
   setBodyForce(fx: number, fy: number): void {
     this.forceX = fx;
     this.forceY = fy;
+  }
+
+  /** Ramp the inlet velocity smoothly from 0 over `length` steps starting now. */
+  rampInlet(length: number): void {
+    this.rampStart = this.steps;
+    this.rampLength = Math.max(0, length);
+  }
+
+  /** Inlet velocity factor for a given step under the current ramp. */
+  inletFactorAt(step: number): number {
+    if (this.rampLength <= 0) return 1;
+    const t = Math.min(1, Math.max(0, (step - this.rampStart) / this.rampLength));
+    const v = Math.sin(0.5 * Math.PI * t);
+    return v * v;
   }
 
   setInlet(u: number | ArrayLike<number>): void {
@@ -218,13 +272,12 @@ export class LbmSolver {
     const src = this.f;
     const dst = this.next;
     const kind = this.kind;
-    const op = this.omegaPlus;
-    const om = this.omegaMinus;
+    const colP = this.colOmegaPlus;
+    const colM = this.colOmegaMinus;
     const fx = this.forceX;
     const fy = this.forceY;
     const forced = fx !== 0 || fy !== 0;
-    const kp = 1 - 0.5 * op;
-    const km = 1 - 0.5 * om;
+
     const rhoA = this.rho;
     const uxA = this.ux;
     const uyA = this.uy;
@@ -236,6 +289,8 @@ export class LbmSolver {
     const N6 = 6 * N;
     const N7 = 7 * N;
     const N8 = 8 * N;
+    const outlet = this.xMode === 'flow';
+    this.inletFactor = this.inletFactorAt(this.steps);
     this.force.fill(0);
 
     for (let y = 0; y < H; y++) {
@@ -244,6 +299,12 @@ export class LbmSolver {
         const idx = row + x;
         const k = kind[idx];
         if (k === 2) continue;
+        const op = colP[x];
+        const om = colM[x];
+        if (outlet && x === W - 1) {
+          this.outletNEE(idx, src, dst, storeMacro);
+          continue;
+        }
         let g0: number, g1: number, g2: number, g3: number, g4: number;
         let g5: number, g6: number, g7: number, g8: number;
         if (k === 0) {
@@ -327,6 +388,8 @@ export class LbmSolver {
 
         if (forced) {
           // Guo forcing, symmetric part scaled by (1 − ω⁺/2), antisymmetric by (1 − ω⁻/2).
+          const kp = 1 - 0.5 * op;
+          const km = 1 - 0.5 * om;
           const uF = ux * fx + uy * fy;
           r0 += kp * W0 * (-3 * uF);
           let cF = fx;
@@ -439,7 +502,7 @@ export class LbmSolver {
         sx += W;
       } else if (sx >= W) {
         if (!xPeriodic) {
-          g[i] = 0; // outlet unknown, filled by the pressure boundary below
+          g[i] = 0; // unused: the outlet column is set by non-equilibrium extrapolation
           continue;
         }
         sx -= W;
@@ -447,12 +510,29 @@ export class LbmSolver {
       const s = sy * W + sx;
       const b = mask[s];
       if (b !== 0) {
-        // Half-way bounce-back: what left this node towards the wall returns reversed.
-        const v = src[OPP[i] * N + idx];
-        g[i] = v;
-        // Momentum given to the body: c_j g_j − c_i g_i = −2 c_i v  (j = opposite of i).
-        F[2 * b] -= 2 * cx * v;
-        F[2 * b + 1] -= 2 * cy * v;
+        // Bounce-back: what left this node towards the wall (direction j = opposite of i)
+        // returns reversed. Half-way by default, linearly interpolated when q is known.
+        const j = OPP[i];
+        const v = src[j * N + idx];
+        let back = v;
+        const qb = this.wallQ ? this.wallQ[idx * 8 + j - 1] : 0;
+        const q = qb / 65535;
+        if (qb !== 0) {
+          if (q < 0.5) {
+            // Needs the node one link further from the wall, x + c_i.
+            const ax = x + cx;
+            const ay = y + cy;
+            if (ax >= 0 && ax < W && ay >= 0 && ay < H && mask[ay * W + ax] === 0) {
+              back = 2 * q * v + (1 - 2 * q) * src[j * N + ay * W + ax];
+            }
+          } else {
+            back = v / (2 * q) + ((2 * q - 1) / (2 * q)) * src[i * N + idx];
+          }
+        }
+        g[i] = back;
+        // Momentum given to the body: c_j (g_j + g_i_new) = −c_i (v + back).
+        F[2 * b] -= cx * (v + back);
+        F[2 * b + 1] -= cy * (v + back);
       } else {
         g[i] = src[i * N + s];
       }
@@ -460,30 +540,57 @@ export class LbmSolver {
     if (xPeriodic) return;
     if (x === 0) {
       // Zou–He velocity inlet with u = (U(y), 0): unknowns are g1, g5, g8.
-      const u = this.inletU[y];
+      const u = this.inletU[y] * this.inletFactor;
       const rho = (1 + g[0] + g[2] + g[4] + 2 * (g[3] + g[6] + g[7])) / (1 - u);
       const d24 = 0.5 * (g[2] - g[4]);
       g[1] = g[3] + (2 / 3) * rho * u;
       g[5] = g[7] - d24 + (1 / 6) * rho * u;
       g[8] = g[6] + d24 + (1 / 6) * rho * u;
-    } else if (x === W - 1) {
-      // Zou–He pressure outlet, ρ = 1 (anchors the density level; the benchmark's "do-nothing"
-      // outflow is a zero-normal-stress condition). Unknowns g3, g6, g7. The tangential velocity
-      // is extrapolated from the upstream neighbour so vortices can leave the domain.
-      const nb = idx - 1;
-      let r = 1;
-      let jy = 0;
-      for (let i = 0; i < 9; i++) {
-        const v = src[i * N + nb];
-        r += v;
-        jy += CY[i] * v;
+    }
+  }
+
+  /**
+   * Outlet node: non-equilibrium extrapolation (Guo, Zheng & Shi, Chinese Phys. 11, 2002).
+   * Equilibrium at ρ = 1 with the upstream neighbour's velocity, plus the neighbour's
+   * non-equilibrium part. Anchors the pressure level without the instability of the Zou–He
+   * pressure condition at low viscosity. Written directly as post-collision populations.
+   */
+  private outletNEE(idx: number, src: FloatArray, dst: FloatArray, storeMacro: boolean) {
+    const N = this.size;
+    const nb = idx - 1;
+    const eqB = this.scratch;
+    if (this.mask[nb] !== 0) {
+      for (let i = 0; i < 9; i++) dst[i * N + idx] = 0;
+      if (storeMacro) {
+        this.rho[idx] = 1;
+        this.ux[idx] = 0;
+        this.uy[idx] = 0;
       }
-      const uy = mask[nb] !== 0 ? 0 : jy / r;
-      const ux = g[0] + g[2] + g[4] + 2 * (g[1] + g[5] + g[8]); // (1 + Σ known)/ρ − 1 with ρ = 1
-      const d24 = 0.5 * (g[2] - g[4]);
-      g[3] = g[1] - (2 / 3) * ux;
-      g[7] = g[5] + d24 - 0.5 * uy - (1 / 6) * ux;
-      g[6] = g[8] - d24 + 0.5 * uy - (1 / 6) * ux;
+      return;
+    }
+    let drho = 0;
+    let jx = 0;
+    let jy = 0;
+    for (let i = 0; i < 9; i++) {
+      const v = src[i * N + nb];
+      drho += v;
+      jx += CX[i] * v;
+      jy += CY[i] * v;
+    }
+    const rhoN = 1 + drho;
+    const ux = jx / rhoN;
+    const uy = jy / rhoN;
+    equilibriumShifted(rhoN, ux, uy, eqB);
+    const usq = 1.5 * (ux * ux + uy * uy);
+    for (let i = 0; i < 9; i++) {
+      const cu = CX[i] * ux + CY[i] * uy;
+      const eqOut = WEIGHTS[i] * (3 * cu + 4.5 * cu * cu - usq); // shifted equilibrium at ρ = 1
+      dst[i * N + idx] = eqOut + (src[i * N + nb] - eqB[i]);
+    }
+    if (storeMacro) {
+      this.rho[idx] = 1;
+      this.ux[idx] = ux;
+      this.uy[idx] = uy;
     }
   }
 

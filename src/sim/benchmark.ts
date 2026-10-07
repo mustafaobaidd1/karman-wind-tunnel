@@ -7,6 +7,9 @@
  * Coefficients: c = 2F / (ρ Ū² D) with Ū = 2/3 U_m; St = D f / Ū.
  */
 
+import { Rasterizer } from '../geometry/rasterize.ts';
+import { createBody, type Body } from '../geometry/shapes.ts';
+
 export type DfgCaseId = '2D-1' | '2D-2';
 
 export const DFG_GEOMETRY = {
@@ -69,6 +72,10 @@ export interface DfgLattice {
   inlet: Float64Array;
   /** Obstacle mask: 1 = cylinder. */
   mask: Uint8Array;
+  /** Packed wall distances for interpolated bounce-back (see Rasterizer). */
+  wallQ: Uint16Array;
+  /** The cylinder as a vector body in tunnel units (channel height = 1). */
+  body: Body;
 }
 
 /**
@@ -94,13 +101,16 @@ export function dfgLattice(caseId: DfgCaseId, diameterCells: number, uMean = 0.0
     const yh = (j + 0.5) / height;
     inlet[j] = 4 * uMax * yh * (1 - yh);
   }
-  const mask = new Uint8Array(width * height);
-  const r2 = radius * radius;
-  for (let j = 0; j < height; j++) {
-    for (let i = 0; i < width; i++) {
-      if ((i - cx) ** 2 + (j - cy) ** 2 <= r2) mask[j * width + i] = 1;
-    }
-  }
+  // World units: channel height = 1; node i sits at x = (i + ½)·h, i.e. physical x = i·dx.
+  const h = 1 / height;
+  const body = createBody(
+    'circle',
+    { size: DFG_GEOMETRY.diameter / DFG_GEOMETRY.height },
+    (cx + 0.5) * h,
+    (cy + 0.5) * h,
+  );
+  const raster = new Rasterizer(width, height);
+  raster.rasterizeAll([{ body, slot: 1 }]);
   return {
     caseId,
     diameterCells,
@@ -116,7 +126,38 @@ export function dfgLattice(caseId: DfgCaseId, diameterCells: number, uMean = 0.0
     cy,
     radius,
     inlet,
-    mask,
+    mask: raster.mask,
+    wallQ: raster.q16,
+    body,
+  };
+}
+
+/**
+ * Initial state: the inflow profile everywhere, optionally with a small Lamb–Oseen vortex just
+ * behind the cylinder to break the symmetry so periodic shedding (2D-2) starts after a few
+ * periods instead of dozens. The benchmark prescribes no initial condition for 2D-2; only the
+ * developed periodic state is measured.
+ */
+export function dfgInitialState(lat: DfgLattice, kick: boolean) {
+  const D = lat.diameterCells;
+  const vx = lat.cx + 1.2 * D;
+  const vy = lat.cy + 0.35 * D;
+  const core = 0.35 * D;
+  const gamma = 0.6 * lat.uMean * D;
+  return (x: number, y: number): readonly [number, number, number] => {
+    let ux = lat.inlet[y];
+    let uy = 0;
+    if (kick) {
+      const dx = x - vx;
+      const dy = y - vy;
+      const r2 = dx * dx + dy * dy;
+      if (r2 > 1e-12) {
+        const ut = (gamma / (2 * Math.PI * r2)) * (1 - Math.exp(-r2 / (core * core)));
+        ux += -ut * dy;
+        uy += ut * dx;
+      }
+    }
+    return [1, ux, uy];
   };
 }
 
